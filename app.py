@@ -34,9 +34,7 @@ app.layout = html.Div([
                     values=[])],
             style={'width': '48%', 'display': 'inline-block'}),
         html.Div([
-            dcc.DatePickerRange(id='date_range'),
-            html.Button('Submit', id='button')],
-                
+            dcc.DatePickerRange(id='date_range')],
             style={'width': '48%', 'display': 'inline-block'}
             ),
         ]),
@@ -48,10 +46,9 @@ app.layout = html.Div([
 @app.callback(
     Output('indicator-graphic', 'figure'),
     [Input('channels', 'values'),
-     Input('button', 'n_clicks'),
      Input('date_range', 'end_date')],
      [State('date_range', 'start_date')])
-def update_graph(channels, n_clicks, end_date, start_date):
+def update_graph(channels, end_date, start_date):
     print('updating')
     data = []
     if 'temp1' in channels:
@@ -69,4 +66,4 @@ def update_graph(channels, n_clicks, end_date, start_date):
     return {
         'data': data}
 if __name__ == '__main__':
-    app.run_server(debug=True, host='10.214.1.36')
+    app.run_server(debug=True, host='localhost')
