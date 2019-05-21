@@ -23,7 +23,7 @@ CHANNELS = ['CH1 T', 'CH2 T', 'CH5 T', 'CH6 T']
 PRESSURES = []
 LEVELS = ['He3']
 
-PATH_DATA = 'LOGS\\DummyFridge\\data'
+PATH_DATA = r'LOGS\DummyFridge\data'
 # Date range
 MIN_DATE_ALLOWED = date(2018, 8, 5)
 MAX_DATE_ALLOWED = date.today()
@@ -33,7 +33,7 @@ END_DATE  = date.today()
 #########################################################
 # Time range 
 def daterange(start_date, end_date):
-    for n in range(int ((end_date - start_date).days)):
+    for n in range(int((end_date - start_date).days)):
         yield start_date + timedelta(n)
 
 # Acquisition of data
@@ -42,8 +42,8 @@ def get_file(path):
         This function returns a pandas format with frames 'Date', 'Time', 'Value',
         Their types are 'object', 'datetime64[ns]', 'float64' accordingly.
     """
-    df = pd.read_csv(path, sep="\,", names=['Date','Time','Value'], engine='python')
-    df.Time = pd.to_datetime(df.Date +' '+ df.Time, format='%d-%m-%y %H:%M:%S')
+    df = pd.read_csv(path, sep=r",", names=['Date','Time','Value'], engine='python')
+    df.Time = pd.to_datetime(df.Date +' '+ df.Time, format=' %d-%m-%y %H:%M:%S')
     # delete the 'Date', 'Time' has the information 
     df = df.drop('Date', 1)
     return df
@@ -52,30 +52,34 @@ def get_file(path):
 def get_data(start_date=date.today(), end_date=date.today(), channels = CHANNELS):
     
     df_full = pd.DataFrame()
-    for single_date in daterange(start_date, end_date+timedelta(days=1)):
-        path = PATH_DATA + '\\'+ single_date.strftime("%Y")+ '\\'+ single_date.strftime("%y-%m-%d") +'\\'
-        
+    for single_date in daterange(start_date, end_date + timedelta(days=1)):
+
+        path = PATH_DATA + '\\' + single_date.strftime("%Y")+ '\\' + single_date.strftime("%y-%m-%d") + '\\'
+
         # for different channels, their data are saved in an object
         df_channel = pd.DataFrame()
         for i, chan in enumerate(channels):
             file_name = chan + ' ' + single_date.strftime("%y-%m-%d") + r'.log'
+
             # get the data from a file
-            df = get_data(path + file_name)
+
+            df = get_file(path + file_name)
+
             # delete the 'Date', 'Time' has the information 
             df = df.rename(columns={'Value': chan})
             if df_channel.empty:
                 df_channel = df
-            else: df_channel = pd.merge(df_channel, df, how='outerd', on='Time')
+            else: df_channel = pd.merge(df_channel, df, how='outer', on='Time')
         
         if df_full.empty:
-            df_full = df.channel
+            df_full = df_channel
         else: df_full = pd.concat([df_full, df_channel], axis=0)
     
     return df_full
 
 path_data = os.path.dirname(os.path.abspath(__file__))
 
-test_data = get_data(r'LOGS\DummyFridge\data\2019\19-04-13\CH1 P 19-04-13.log')
+test_data = get_data(date(2019, 4, 13), date(2019, 4, 14))
 
 
 TIMES1 = np.linspace(0,15, 200)

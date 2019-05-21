@@ -4,7 +4,7 @@ def daterange(start_date, end_date):
     for n in range(int ((end_date - start_date).days)):
         yield start_date + timedelta(n)
 
-start_date = date(2013, 1, 1,)
+start_date = date.today()
 end_date = date.today()
 
 CHANNELS = ['CH1 T', 'CH2 T', 'CH5 T', 'CH6 T']
@@ -16,3 +16,6 @@ for single_date in daterange(start_date, end_date+timedelta(days=1)):
 
         file_name = chan + ' '+ single_date.strftime("%y-%m-%d") + r'.log'
         print(path+file_name)
+        
+        
+(end_date - start_date).days

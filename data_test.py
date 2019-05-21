@@ -35,6 +35,6 @@ b= get_data(r'LOGS\DummyFridge\data\2019\19-04-13\CH2 T 19-04-13.log')
 
 c = pd.concat([test_data, test_data2], ignore_index=True)
 
-d = pd.merge(a,b, how='outer', on='Time')
+d = pd.merge(a,b, how='outerd', on='Time')
 
 c 
