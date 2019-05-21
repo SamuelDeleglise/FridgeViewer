@@ -30,5 +30,11 @@ def select_path(channel, date, time):
 
 path_data = os.path.dirname(os.path.abspath(__file__))
 
-test_data = get_data(r'LOGS\DummyFridge\data\2019\19-04-13\CH1 P 19-04-13.log')
+a = get_data(r'LOGS\DummyFridge\data\2019\19-04-13\CH1 T 19-04-13.log')
+b= get_data(r'LOGS\DummyFridge\data\2019\19-04-13\CH2 T 19-04-13.log')
 
+c = pd.concat([test_data, test_data2], ignore_index=True)
+
+d = pd.merge(a,b, how='outer', on='Time')
+
+c 

@@ -10,33 +10,64 @@ from plotly import tools
 
 import pandas as pd
 import numpy as np
-from datetime import datetime as dt
+from datetime import timedelta, date
+
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
 app = dash.Dash(__name__, external_stylesheets=[external_stylesheets])
 #########################################################
 # Settings
-CHANNELS = ['He3 RuO2', '1Kpot RuO2', 'He3 AB', 'Sorb AB']
+# It requires that time series are same
+CHANNELS = ['CH1 T', 'CH2 T', 'CH5 T', 'CH6 T']
 PRESSURES = []
 LEVELS = ['He3']
 
+PATH_DATA = 'LOGS\\DummyFridge\\data'
 # Date range
-MIN_DATE_ALLOWED = dt(2018, 8, 5)
-MAX_DATE_ALLOWED = dt.today()
-INITIAL_MONTH = dt.today()
-END_DATE  = dt.today()
-#########################################################
-# Acquisition of data
+MIN_DATE_ALLOWED = date(2018, 8, 5)
+MAX_DATE_ALLOWED = date.today()
+INITIAL_MONTH = date.today()
+END_DATE  = date.today()
 
-def get_data(path):
+#########################################################
+# Time range 
+def daterange(start_date, end_date):
+    for n in range(int ((end_date - start_date).days)):
+        yield start_date + timedelta(n)
+
+# Acquisition of data
+def get_file(path):
     """ The original format of data is 'date,time,value',
         This function returns a pandas format with frames 'Date', 'Time', 'Value',
         Their types are 'object', 'datetime64[ns]', 'float64' accordingly.
     """
     df = pd.read_csv(path, sep="\,", names=['Date','Time','Value'], engine='python')
     df.Time = pd.to_datetime(df.Date +' '+ df.Time, format='%d-%m-%y %H:%M:%S')
+    # delete the 'Date', 'Time' has the information 
+    df = df.drop('Date', 1)
     return df
+
+# By defaut, it gets the data of today
+def get_data(start_date=date.today(), end_date=date.today(), channels = CHANNELS):
+    
+    df_full = pd.DataFrame()
+    for single_date in daterange(start_date, end_date+timedelta(days=1)):
+        path = PATH_DATA + '\\'+ single_date.strftime("%Y")+ '\\'+ single_date.strftime("%y-%m-%d") +'\\'
+        
+        # for different channels, their data are saved in an object
+        df_channel = pd.DataFrame()
+        for i, chan in enumerate(channels):
+            file_name = chan + ' ' + single_date.strftime("%y-%m-%d") + r'.log'
+            # get the data from a file
+            df = get_data(path + file_name)
+            # delete the 'Date', 'Time' has the information 
+            df = df.rename(columns={'Value': chan})
+            if df_channel.empty():
+                df_channel = df
+            elif len(df_channel['Time'] == df['Time']): 
+                df_channel = pd.merge(df_channel, df, how='outerd', on='Time')
+
 
 # unfinished 
 def select_path(channel, date, time):
@@ -184,6 +215,11 @@ app.layout = html.Div([
                # channel selection style
             ], style = {'left':'15px', 'right':'15px'}
             ),
+            
+            # Real time control
+            dcc.Interval(id="interval-log-update",
+                n_intervals=0
+            ),
 
             dbc.Row([     
                 dcc.Graph(id='indicator-graphic',)
@@ -200,16 +236,12 @@ app.layout = html.Div([
                 )
             ]),
             
-            # Real time control
-            dcc.Interval(id="interval-log-update",
-                n_intervals=0
-            ),
 
             # Hidden Div Storing JSON-serialized dataframe of run log
             html.Div(id='run-log-storage', style={'display': 'none'}),
  
             # temperature col style
-            ], className='graph col', style={ 'width':'70%', 'height':'700px', 'float': 'left', 'padding': 5, 'margin': 5, 'display': 'inline-block'}
+            ], className='graph col', style={ 'width':'70%', 'height':'100%', 'float': 'left', 'padding': 5, 'margin': 5, 'display': 'inline-block'}
         ),
 
         dbc.Col([
@@ -278,6 +310,41 @@ app.layout = html.Div([
 
 #########################################################
 # Callback and update
+
+# Callback the update speed
+@app.callback(Output('interval-log-update', 'interval'),
+              [Input('dropdown-interval-control', 'value')])
+def update_interval_log_update(interval_rate):
+    if interval_rate == 'fast':
+        return 500
+
+    elif interval_rate == 'regular':
+        return 1000
+
+    elif interval_rate == 'slow':
+        return 5 * 1000
+
+    # Refreshes every 24 hours
+    elif interval_rate == 'no':
+        return 24 * 60 * 60 * 1000
+
+# Just get a hidden data
+@app.callback(Output('run-log-storage', 'children'),
+                  [Input('interval-log-update', 'n_intervals'), 
+                  Input('date_range', 'start_date'),
+                  Input('date_range', 'end_date')])
+def get_run_log(n_intervals, start_date, end_date):
+        
+    try:
+        run_log_df = get_data(start_date, end_date)
+        json = run_log_df.to_json(orient='split')
+    except FileNotFoundError as error:
+        print(error)
+        print("Please verify if the data is placed in the correct directory.")
+        return None
+
+    return json
+
 
 
 
