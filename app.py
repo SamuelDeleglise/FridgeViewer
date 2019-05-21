@@ -63,17 +63,15 @@ def get_data(start_date=date.today(), end_date=date.today(), channels = CHANNELS
             df = get_data(path + file_name)
             # delete the 'Date', 'Time' has the information 
             df = df.rename(columns={'Value': chan})
-            if df_channel.empty():
+            if df_channel.empty:
                 df_channel = df
-            elif len(df_channel['Time'] == df['Time']): 
-                df_channel = pd.merge(df_channel, df, how='outerd', on='Time')
-
-
-# unfinished 
-def select_path(channel, date, time):
-    path = ''
-    return path
-
+            else: df_channel = pd.merge(df_channel, df, how='outerd', on='Time')
+        
+        if df_full.empty:
+            df_full = df.channel
+        else: df_full = pd.concat([df_full, df_channel], axis=0)
+    
+    return df_full
 
 path_data = os.path.dirname(os.path.abspath(__file__))
 
