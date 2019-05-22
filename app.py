@@ -21,8 +21,7 @@ app.config.suppress_callback_exceptions = True
 # Settings
 # It requires that time series are same
 CHANNELS = ['CH1 T', 'CH2 T', 'CH5 T', 'CH6 T']
-PRESSURES = []
-LEVELS = ['He3']
+LEVELS = ['He3', 'Optical power','Optical reader']
 
 PATH_DATA = r'LOGS\DummyFridge\data'
 # Date range
@@ -30,7 +29,7 @@ MIN_DATE_ALLOWED = date(2018, 8, 5)
 MAX_DATE_ALLOWED = date.today()
 INITIAL_MONTH = date.today()
 TODAY_DATE  = date.today()
-TEST_MODE = True
+TEST_MODE = False
 
 
 #########################################################
@@ -324,12 +323,15 @@ def update_interval_log_update(interval_rate):
             [Input('date_range', 'start_date'),
             Input('date_range', 'end_date'),   # Input('run-log-storage', 'children')
             Input('channels_dropdown', 'value'),
+            Input('interval-log-update', 'n_intervals'),
             Input('display_mode','value')])
-def update_graph(start_date, end_date, selected_dropdown_value, display_mode_value):
+def update_graph(start_date, end_date, selected_dropdown_value, n_intervals, display_mode_value):
     try:
         if TEST_MODE:
             df = test_data    
-        else: 
+        else:
+            start_date = datetime.strptime(start_date, r'%Y-%m-%d')
+            end_date = datetime.strptime(end_date, r'%Y-%m-%d')
             df = get_data(start_date, end_date, CHANNELS)
 
     except FileNotFoundError as error:
