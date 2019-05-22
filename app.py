@@ -110,9 +110,6 @@ path_data = os.path.dirname(os.path.abspath(__file__))
 test_data = get_data(date(2019, 4, 13), date(2019, 4, 14))
 test_data2 = get_data(date(2019, 4, 13), date(2019, 4, 14))
 
-df = pd.read_csv('https://raw.githubusercontent.com/plotly/datasets/master/hello-world-stock.csv')
-df['Date'] = pd.to_datetime(df.Date, infer_datetime_format=True)
-
 #########################################################
 if 'DYNO' in os.environ:
     app_name = os.environ['FridgeViewer']
@@ -178,10 +175,10 @@ app.layout = html.Div([
             ),
 
             dbc.Row([
-                dcc.Graph(id='temperature-graph')
+               #dcc.Graph(id='temperature-graph')
             
                # temperature graph style
-            ],  style = {'left':'0px', 'right':'0px'}
+            ], id='graph_firework', style = {'left':'0px', 'right':'0px'}
             ),
             
             # # Hidden Div Storing JSON-serialized dataframe of run log
@@ -323,11 +320,12 @@ def update_interval_log_update(interval_rate):
 #         print('There is no cache data')
 
 
-@app.callback(Output('temperature-graph', 'figure'),
+@app.callback(Output('graph_firework', 'children'),
             [Input('date_range', 'start_date'),
             Input('date_range', 'end_date'),   # Input('run-log-storage', 'children')
-            Input('channels_dropdown', 'value')])
-def update_graph(start_date, end_date, selected_dropdown_value):
+            Input('channels_dropdown', 'value'),
+            Input('display_mode','value')])
+def update_graph(start_date, end_date, selected_dropdown_value, display_mode_value):
     try:
         if TEST_MODE:
             df = test_data    
@@ -350,16 +348,39 @@ def update_graph(start_date, end_date, selected_dropdown_value):
         opacity=0.7,name=channel, textposition='bottom center'))
 
     data = trace
-    figure = {'data': data,
+    if display_mode_value == 'overlap':
+        figure = {'data': data,
         'layout': go.Layout(colorway=["#5E0DAC", '#FF4F00', '#375CB1', '#FF7400'], # '#FFF400', '#FF0056'
         height=600,title=f" The temperature monitor",
         xaxis={"title":"Date",
-                   'rangeselector': {'buttons': list([{'count': 1, 'label': '1hour', 'step': 'hour', 'stepmode': 'backward'},
-                                                      {'count': 6, 'label': '6hour', 'step': 'hour', 'stepmode': 'backward'},
+                   'rangeselector': {'buttons': list([{'count': 1, 'label': 'last 1 hour', 'step': 'hour', 'stepmode': 'backward'},
+                                                      {'count': 6, 'label': 'last 6 hour', 'step': 'hour', 'stepmode': 'backward'},
                                                       {'step': 'all'}])},
                    'rangeslider': {'visible': True}, 'type': 'date'},yaxis={"title":"Temperature"})}
         
-    return figure
+        return  dcc.Graph(figure=figure, id='temperature-graph') 
+
+    elif display_mode_value == 'separate':
+        print('separate')
+        graph_group = []
+        color = ["#5E0DAC", '#FF4F00', '#375CB1', '#FF7400']
+        for tra, chan, col in zip(trace, selected_dropdown_value, color):
+            print(type(tra))
+            t = [tra]
+            figure = {'data': t,
+                     'layout': go.Layout(colorway=[col],
+                     height=400,title=f" The temperature of {0}".format(chan),
+                     xaxis={"title":"Date",
+                    'rangeselector': {'buttons': list([{'count': 1, 'label': 'last 1 hour', 'step': 'hour', 'stepmode': 'backward'},
+                                                      {'count': 6, 'label': 'last 6 hour', 'step': 'hour', 'stepmode': 'backward'},
+                                                      {'step': 'all'}])},
+                   'rangeslider': {'visible': False}, 'type': 'date'},yaxis={"title":"Temperature"})}
+            graph_group.append(dcc.Graph(figure=figure, id='temperature_{0}'.format(chan)))
+        
+
+        return graph_group
+    else:
+        print('The creation of graph figure fails')
     
 
 if __name__ == '__main__':
