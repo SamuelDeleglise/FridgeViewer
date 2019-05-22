@@ -4,7 +4,7 @@ import os
 
 import plotly.plotly as py
 import plotly.graph_objs as go
-
+import json
 temp=u"""13-04-19,00:00:23,7.526100E-8
  13-04-19,00:01:23,7.526400E-8
  13-04-19,00:02:23,7.528200E-8"""
@@ -33,8 +33,12 @@ path_data = os.path.dirname(os.path.abspath(__file__))
 a = get_data(r'LOGS\DummyFridge\data\2019\19-04-13\CH1 T 19-04-13.log')
 b= get_data(r'LOGS\DummyFridge\data\2019\19-04-13\CH2 T 19-04-13.log')
 
-c = pd.concat([test_data, test_data2], ignore_index=True)
+c = pd.concat([a, b], ignore_index=True)
 
-d = pd.merge(a,b, how='outerd', on='Time')
+d = pd.merge(a,b, how='outer', on='Time')
 
-c 
+pandatime = pd.to_datetime(a['Time'].iloc[-1])
+
+dt = pandatime.to_pydatetime()
+
+print(json.dumps(c, sort_keys=True, indent=4))

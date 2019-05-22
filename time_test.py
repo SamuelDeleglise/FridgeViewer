@@ -1,4 +1,4 @@
-from datetime import timedelta, date
+from datetime import timedelta, date, time, datetime
 
 def daterange(start_date, end_date):
     for n in range(int ((end_date - start_date).days)):
@@ -19,3 +19,11 @@ for single_date in daterange(start_date, end_date+timedelta(days=1)):
         
         
 (end_date - start_date).days
+
+a = date(2019, 4, 23)
+b = time(12, 34, 45)
+c = datetime(2019, 4, 23, 12, 34, 45)
+d = 
+print(type(a))
+print(type(b))
+print(type(c))
