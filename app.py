@@ -369,10 +369,10 @@ def update_graph(start_date, end_date, selected_dropdown_value, display_mode_val
             t = [tra]
             figure = {'data': t,
                      'layout': go.Layout(colorway=[col],
-                     height=400,title=f" The temperature of {0}".format(chan),
+                     height=400,title=" The temperature of {0}".format(chan),
                      xaxis={"title":"Date",
                     'rangeselector': {'buttons': list([{'count': 1, 'label': 'last 1 hour', 'step': 'hour', 'stepmode': 'backward'},
-                                                      {'count': 6, 'label': 'last 6 hour', 'step': 'hour', 'stepmode': 'backward'},
+                                                      {'count': 6, 'label': 'last 6 hours', 'step': 'hour', 'stepmode': 'backward'},
                                                       {'step': 'all'}])},
                    'rangeslider': {'visible': False}, 'type': 'date'},yaxis={"title":"Temperature"})}
             graph_group.append(dcc.Graph(figure=figure, id='temperature_{0}'.format(chan)))
