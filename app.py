@@ -34,7 +34,7 @@ MAX_DATE_ALLOWED = date.today()
 INITIAL_MONTH = date.today()
 TODAY_DATE  = date.today()
 TEST_MODE = False
-
+experiments = ['DummyFridge']
 #########################################################
 if 'DYNO' in os.environ:
     app_name = os.environ['FridgeViewer']
@@ -56,32 +56,56 @@ app.layout = html.Div([
                     'top': '5px',
                     'left': '15px',
                     'display': 'inline',
-                    'font-size': '4.0rem',
+                    'font-size': '3.0rem',
                     'color': '#4D637F'
             }
         ),
         # Logo
         html.Img(src="https://tel.archives-ouvertes.fr/LKB-THESE/public/Logo_LKB.png",
             style={ 'top': '5px',
-                    'height': '90px',
+                    'height': '70px',
                     'float': 'right',
                     'position': 'relative',
                     'right': '15px'
             },
         )
-    ],className="banner", style={'position': 'relative', 'right': '15px'}
+    ],className="banner", style={'position': 'relative', 'right': '15px','margin-top': '10px','margin-bottom': '10px'}
     ),
 
-    # Head
-    html.Div([
-        html.H2('Select the signal channel'),
-        # head style
-    ], style={'margin-left': '10px','margin-top': '10px'}
-    ),
     
     # Body
+    dbc.Col(className="Col", children=[
+        html.Div([
+                html.H2('Data path'),
+            ], style={'margin-left': '0px','margin-top': '0px'}
+            ),
+        
+        dbc.Row(className="Row", children=[
+
+            html.Div(dcc.Input(id='input-box', type='text'), style={'width': '30%','float': 'left',}),
+            
+            html.Button('Submit', id='button'),
+            
+            dcc.RadioItems(
+                    options=[{'label': i, 'value': i} for i in experiments],
+                    value='MTL',
+                    labelStyle={'display': 'inline-block'}
+            ),
+            html.Div(id='output-container-radioitems',
+             children='path experiment'),
+        ]),
+    ]),
+
     dbc.Row(className="Row", children=[
         dbc.Col([
+
+            html.Div([
+                html.H2('Select the signal channel'),
+                # head style
+            ], style={'margin-left': '0px','margin-top': '0px'}
+            ),
+
+
             dbc.Row([    
                 # Channel selection dropdown
                 dcc.Dropdown(id='channels_dropdown',

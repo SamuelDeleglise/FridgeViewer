@@ -6,7 +6,7 @@ import numpy as np
 from datetime import timedelta, date, time, datetime
 #########################################################
 # Settings
-# It requires that time series are same
+
 
 PATH_DATA = r'LOGS\DummyFridge\data'
 # Date range
@@ -16,8 +16,10 @@ INITIAL_MONTH = date.today()
 TODAY_DATE  = date.today()
 TEST_MODE = False
 
-########################################################
 path_test = r'C:\Users\YIFAN\Documents\GitHub\FridgeViewer\LOGS\DummyFridge\data\2019\19-04-13'
+path_test2 = r'C:\Users\YIFAN\Documents\GitHub\FridgeViewer\LOGS'
+########################################################
+
 
 def all_file_paths(path, filetype='.log'):
     """ return all paths of .logf iles in one directory 
@@ -25,18 +27,38 @@ def all_file_paths(path, filetype='.log'):
     all_files = glob.glob(path + '/*'+filetype)
     return all_files
 
+def all_folder_paths(path):
+    """ return all paths of folder in one directory 
+    """
+    all_folders = glob.glob(path + '/*')
+    return all_folders
+
 def path_leaf(path):
     """ remove / or \
     """
     head, tail = ntpath.split(path)
     return tail or ntpath.basename(head)
 
+def get_folder(all_folders_or_files):
+    """ return all folder names as a list
+    """
+    folders = []
+    pattern = re.compile(r'\.\w+')
+    for item in all_folders_or_files:
+        if  re.search(pattern, path_leaf(item)) ==None:
+            folders.append(re.sub(pattern,'', path_leaf(item)))
+        else: pass
+    return folders
+
+
+
 def get_file_channels(all_files):
-    """ return all file names from a list of file paths
+    """ return all file names as list
     """
     names = []
+    pattern = re.compile(r'(\s|\_)\d+\-\d+\-\d+\.\w+')
+    
     for filepath in all_files:
-        pattern = re.compile(r'(\s|\_)\d+\-\d+\-\d+\.\w+')
         names.append(re.sub(pattern,'', path_leaf(filepath)))
     return names
 
@@ -119,6 +141,5 @@ def get_data(start_date, end_date, channels, path_data = PATH_DATA):
 
 
 # test mode data
-path_data = os.path.dirname(os.path.abspath(__file__))
 test_data = get_data(date(2019, 4, 13), date(2019, 4, 14), ['CH1 T', 'CH2 T'])
 test_data2 = get_data(date(2019, 4, 13), date(2019, 4, 14), ['CH1 P'])
