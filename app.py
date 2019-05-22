@@ -11,6 +11,10 @@ from plotly import tools
 import numpy as np
 from datetime import timedelta, date, time, datetime
 
+from data import*
+
+
+
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
 app = dash.Dash(__name__, external_stylesheets=[external_stylesheets])
@@ -30,84 +34,6 @@ MAX_DATE_ALLOWED = date.today()
 INITIAL_MONTH = date.today()
 TODAY_DATE  = date.today()
 TEST_MODE = False
-
-
-#########################################################
-# Time range 
-def daterange(start_date, end_date):
-    for n in range(int((end_date - start_date).days)):
-            yield start_date + timedelta(n)
-
-
-# Acquisition of data
-def get_file(path):
-    """ The original format of data is 'date,time,value',
-        This function returns a pandas format with frames 'Date', 'Time', 'Value',
-        Their types are 'object', 'datetime64[ns]', 'float64' accordingly.
-    """
-    df = pd.read_csv(path, sep=r",", names=['Date','Time','Value'], engine='python')
-    df.Time = pd.to_datetime(df.Date +' '+ df.Time, format=' %d-%m-%y %H:%M:%S')
-    # delete the 'Date', 'Time' has the information 
-    df = df.drop('Date', 1)
-    return df
-
-# By defaut, it gets the data of today
-def get_data_simple(start_date=date.today(), end_date=date.today(), channels = CHANNELS):
-    
-    df_full = pd.DataFrame()
-    for single_date in daterange(start_date, end_date + timedelta(days=1)):
-        
-        path = PATH_DATA + '\\' + single_date.strftime("%Y")+ '\\' + single_date.strftime("%y-%m-%d") + '\\'
-        # for different channels, their data are saved in an object
-        df_channel = pd.DataFrame()
-        for i, chan in enumerate(channels):
-            file_name = chan + ' ' + single_date.strftime("%y-%m-%d") + r'.log'
-
-            # get the data from a file
-            df = get_file(path + file_name)
-
-            # delete the 'Date', 'Time' has the information 
-            df = df.rename(columns={'Value': chan})
-            if df_channel.empty:
-                df_channel = df
-            else: df_channel = pd.merge(df_channel, df, how='outer', on='Time')
-        
-        if df_full.empty:
-            df_full = df_channel
-        else: df_full = pd.concat([df_full, df_channel], axis=0)
-    return df_full
-
-def get_data(start_date=date.today(), end_date=date.today(), channels = CHANNELS):
-    
-    df_full = pd.DataFrame()
-    for single_date in daterange(start_date, end_date + timedelta(days=1)):
-        
-        path = PATH_DATA + '\\' + single_date.strftime("%Y")+ '\\' + single_date.strftime("%y-%m-%d") + '\\'
-        # for different channels, their data are saved in an object
-        df_channel = pd.DataFrame()
-        for chan in channels:
-            file_name = chan + ' ' + single_date.strftime("%y-%m-%d") + r'.log'
-
-            # get the data from a file
-            df = get_file(path + file_name)
-
-            # delete the 'Date', 'Time' has the information 
-            df = df.rename(columns={'Value': chan})
-            df = df.rename(columns={'Time': 'Time_'+chan})
-            if df_channel.empty:
-                df_channel = df
-            else: df_channel = pd.concat([df_channel, df], axis=1)
-        
-        if df_full.empty:
-            df_full = df_channel
-        else: df_full = pd.concat([df_full, df_channel], axis=0)
-    return df_full
-
-
-# test mode data
-path_data = os.path.dirname(os.path.abspath(__file__))
-test_data = get_data(date(2019, 4, 13), date(2019, 4, 14))
-test_data2 = get_data(date(2019, 4, 13), date(2019, 4, 14))
 
 #########################################################
 if 'DYNO' in os.environ:
@@ -353,7 +279,7 @@ def update_graph(start_date, end_date, selected_dropdown_value, n_intervals, dis
     if display_mode_value == 'overlap':
         figure = {'data': data,
         'layout': go.Layout(colorway=["#5E0DAC", '#FF4F00', '#375CB1', '#FF7400'], # '#FFF400', '#FF0056'
-        height=600,title=f" The temperature monitor",
+        height=600,title=" The temperature monitor",
         xaxis={"title":"Date",
                    'rangeselector': {'buttons': list([{'count': 1, 'label': 'last 1 hour', 'step': 'hour', 'stepmode': 'backward'},
                                                       {'count': 6, 'label': 'last 6 hour', 'step': 'hour', 'stepmode': 'backward'},
