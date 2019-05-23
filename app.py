@@ -1,3 +1,4 @@
+# In[]:
 import os
 import dash
 import dash_core_components as dcc
@@ -15,8 +16,7 @@ from data import*
 
 
 
-external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
-
+external_stylesheets = ['https://rayonde.github.io/external_css/fridge.css']
 app = dash.Dash(__name__, external_stylesheets=[external_stylesheets])
 server = app.server
 app.config.suppress_callback_exceptions = True
@@ -33,8 +33,9 @@ MIN_DATE_ALLOWED = date(2018, 8, 5)
 MAX_DATE_ALLOWED = date.today()
 INITIAL_MONTH = date.today()
 TODAY_DATE  = date.today()
-TEST_MODE = False
-experiments = ['DummyFridge']
+TEST_MODE = True
+years_auto = ['DummyFridge']
+experiments_auto = ['2019']
 #########################################################
 if 'DYNO' in os.environ:
     app_name = os.environ['FridgeViewer']
@@ -50,51 +51,56 @@ app.layout = html.Div([
     html.Div([
         # Title
         html.H1('FridgeViewer',
-            id='title',
-            style={
-                    'position': 'relative',
-                    'top': '5px',
-                    'left': '15px',
-                    'display': 'inline',
-                    'font-size': '3.0rem',
-                    'color': '#4D637F'
-            }
-        ),
+                id='title',
+                className='eight columns',
+     ),
         # Logo
-        html.Img(src="https://tel.archives-ouvertes.fr/LKB-THESE/public/Logo_LKB.png",
-            style={ 'top': '5px',
+        html.Img(src="https://rayonde.github.io/external_image/Logo_LKB.png",
+                style={ 'top': '5px',
                     'height': '70px',
                     'float': 'right',
                     'position': 'relative',
                     'right': '15px'
-            },
+                },
+                className='one columns',
         )
-    ],className="banner", style={'position': 'relative', 'right': '15px','margin-top': '10px','margin-bottom': '10px'}
+    ],className="row", style={'margin-top': '10px','margin-bottom': '10px'}
     ),
 
     
     # Body
-    dbc.Col(className="Col", children=[
+    html.Div([
         html.Div([
-                html.H2('Data path'),
-            ], style={'margin-left': '0px','margin-top': '0px'}
-            ),
-        
-        dbc.Row(className="Row", children=[
+                html.H3('Settings',
+                    id = 'settings-title',
+                ),
+        ], id = 'setting-title-framework',
+        ),
 
-            html.Div(dcc.Input(id='input-box', type='text'), style={'width': '30%','float': 'left',}),
-            
-            html.Button('Submit', id='button'),
-            
-            dcc.RadioItems(
-                    options=[{'label': i, 'value': i} for i in experiments],
-                    value='MTL',
-                    labelStyle={'display': 'inline-block'}
-            ),
-            html.Div(id='output-container-radioitems',
-             children='path experiment'),
-        ]),
-    ]),
+        html.Div([
+            html.P('Experiment:'), 
+            html.Div([
+                dcc.Dropdown( id ='experiment',
+                    options=[{'label': i, 'value': i} for i in experiments_auto],
+                    multi=True,
+                    value= experiments_auto[0],
+                ),
+            ]), 
+        ], id='experiment-framework',className='six columns'),
+        
+        html.Div([
+            html.P('Year:'), 
+            html.Div([
+                dcc.Dropdown(id='year',
+                    options=[{'label': i, 'value': i} for i in years_auto],
+                    multi=True,
+                    value= years_auto[-1],
+                ),
+            ]), 
+        ], id='years-framework', className='six columns'),
+
+    ],className="row"
+    ),
 
     dbc.Row(className="Row", children=[
         dbc.Col([
@@ -127,7 +133,7 @@ app.layout = html.Div([
                #dcc.Graph(id='temperature-graph')
             
                # temperature graph style
-            ], id='graph_firework', style = {'left':'0px', 'right':'0px'}
+            ], id='graph_framework', style = {'left':'0px', 'right':'0px'}
             ),
             
             # # Hidden Div Storing JSON-serialized dataframe of run log
@@ -209,7 +215,7 @@ app.layout = html.Div([
                 style={'width': '80%','margin': '30px auto'}
         )
     ]),
-], className="container")
+], className="ten columns offset-by-one")
 
 
 # Callback the update speed
@@ -230,46 +236,46 @@ def update_interval_log_update(interval_rate):
     elif interval_rate == 'no':
         return 24 * 60 * 60 * 1000
 
-# # Just get a hidden data
-# @app.callback(Output('run-log-storage', 'children'),
-#                   [Input('interval-log-update', 'n_intervals'), 
-#                   Input('date_range', 'start_date'),
-#                   Input('date_range', 'end_date')])
-# def get_run_log(n_intervals, start_date, end_date):
-#     try:
-#         if TEST_MODE:
-#             run_log_df = test_data
-#             print('1')
-#             print(run_log_df)
-#             print(run_log_df['Time_CH1 T'])
-#             print(run_log_df['Time_CH5 T'])
+# Just get a hidden data
+@app.callback(Output('run-log-storage', 'children'),
+                  [Input('interval-log-update', 'n_intervals'), 
+                  Input('date_range', 'start_date'),
+                  Input('date_range', 'end_date')])
+def get_run_log(n_intervals, start_date, end_date):
+    try:
+        if TEST_MODE:
+            run_log_df = test_data
+            print('1')
+            print(run_log_df)
+            print(run_log_df['Time_CH1 T'])
+            print(run_log_df['Time_CH5 T'])
          
-#         else: 
-#             run_log_df = get_data(start_date, end_date, CHANNELS)
+        else: 
+            run_log_df = get_data(start_date, end_date, CHANNELS)
         
-#         json_data = run_log_df.to_json(orient='split')
-#         # print('This is json', json_data)
-#     except FileNotFoundError as error:
+        json_data = run_log_df.to_json(orient='split')
+        # print('This is json', json_data)
+    except FileNotFoundError as error:
        
-#         print(error)
-#         print("Please verify if the data is placed in the correct directory.")
-#         return None
-#     return json_data
+        print(error)
+        print("Please verify if the data is placed in the correct directory.")
+        return None
+    return json_data
 
-# @app.callback(Output('div-num-display', 'children'),
-#               [Input('run-log-storage', 'children')])
-# def update_num_display_and_time(run_log_json):
-#     if run_log_json:
+@app.callback(Output('div-num-display', 'children'),
+              [Input('run-log-storage', 'children')])
+def update_num_display_and_time(run_log_json):
+    if run_log_json:
         
-#         run_log_df = pd.read_json(run_log_json, orient='split')
+        run_log_df = pd.read_json(run_log_json, orient='split')
 
-#         return html.Div([html.P("Number of data points:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
-#                 html.H2(f"{run_log_df.shape[0]}", style={'margin-top': '3px'})])
-#     else:
-#         print('There is no cache data')
+        return html.Div([html.P("Number of data points:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
+                html.H2(f"{run_log_df.shape[0]}", style={'margin-top': '3px'})])
+    else:
+        print('There is no cache data')
 
 
-@app.callback(Output('graph_firework', 'children'),
+@app.callback(Output('graph_framework', 'children'),
             [Input('date_range', 'start_date'),
             Input('date_range', 'end_date'),   # Input('run-log-storage', 'children')
             Input('channels_dropdown', 'value'),
@@ -336,4 +342,4 @@ def update_graph(start_date, end_date, selected_dropdown_value, n_intervals, dis
     
 
 if __name__ == '__main__':
-    app.run_server(debug=True, host='localhost')
+    app.run_server(debug=True, use_reloader=False,host='localhost')
