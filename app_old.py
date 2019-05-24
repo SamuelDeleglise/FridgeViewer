@@ -166,7 +166,7 @@ app.layout = html.Div([
             ),
             
             
-            dbc.Row([
+            html.Div([
                 html.P("Update Speed:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
 
                 html.Div(id='div-interval-control', children=[

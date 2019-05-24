@@ -83,7 +83,6 @@ def get_file(path):
     df = df.drop('Date', 1)
     return df
 
-
 def get_file_str(path):
     """ The original format of data is 'date,time,value',
         This function returns a pandas format with frames 'Date', 'Time', 'Value',
@@ -127,17 +126,6 @@ def get_data_str(start_date, end_date, channels, path_data):
         
         df_full = df_full.astype(str)
     return df_full
-
-def get_file(path):
-    """ The original format of data is 'date,time,value',
-        This function returns a pandas format with frames 'Date', 'Time', 'Value',
-        Their types are 'object', 'datetime64[ns]', 'float64' accordingly.
-    """
-    df = pd.read_csv(path, sep=r",", names=['Date','Time','Value'], engine='python')
-    df.Time = pd.to_datetime(df.Date +' '+ df.Time, format=' %d-%m-%y %H:%M:%S')
-    # delete the 'Date', 'Time' has the information 
-    df = df.drop('Date', 1)
-    return df
 
 # By defaut, it gets the data of today
 def get_data_simple(start_date, end_date, channels, path_data):

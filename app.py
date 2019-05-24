@@ -43,8 +43,8 @@ app.layout = html.Div(
         # # Hidden Div Storing JSON-serialized dataframe of run log
         html.Div(id='before-log-storage', style={'display': 'none'}),
         html.Div(id='today-log-storage', style={'display': 'none'}),
-        html.Div(id='num-before-log-storage', style={'display': 'none'}),
-        html.Div(id='num-today-log-storage', style={'display': 'none'}),
+        html.Div(id='num-before-storage', style={'display': 'none'}),
+        html.Div(id='num-today-storage', style={'display': 'none'}),
         
         html.Div(
             [
@@ -161,10 +161,32 @@ app.layout = html.Div(
                     ),
                 ], style={'width': '100%', 'margin-bottom': '20px' }
                 ),
+                
+                html.Div([
+                    html.P("Update Speed:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
+
+                    html.Div(id='div-interval-control', children=[
+                        dcc.Dropdown(id='dropdown-interval-control',
+                            options=[
+                                {'label': 'No Updates', 'value': 'no'},
+                                {'label': 'Slow Updates', 'value': 'slow'},
+                                {'label': 'Regular Updates', 'value': 'regular'},
+                                {'label': 'Fast Updates', 'value': 'fast'}
+                            ],
+                            value='regular',
+                            className='ten columns',
+                            clearable=False,
+                            searchable=False
+                        )
+                    ]),
+                ], style={'width': '100%', 'margin-bottom': '20px' }
+                ),
+
 
                 html.Div(id="div-num-display",
                     style={'width': '100%', 'margin-bottom': '20px' }
                 ),
+                
                 html.Div([html.Button('Autoscale', id='autoscale', n_clicks_timestamp=0),],
                     style={'width': '100%', 'margin-bottom': '20px' }
                 ),
@@ -212,6 +234,13 @@ def update_interval_log_update(interval_rate):
                 [Input('date_range', 'start_date'),
                  Input('date_range', 'end_date')])
 def storage_mode(start_date, end_date):
+    try:
+        end_date = datetime.strptime(end_date,r'%Y-%m-%d')
+        start_date = datetime.strptime(start_date, r'%Y-%m-%d')
+    except TypeError as error:      
+        print(error)
+        print("Start day and end day have wrong filetype.")
+
     # Select record mode
     if end_date.date() < datetime.today().date():
         return 'no'
@@ -221,10 +250,17 @@ def storage_mode(start_date, end_date):
 # Dash can't have the same Input and Output
 # Save the data as json file in cache
 @app.callback([Output('before-log-storage', 'children'),
-               Output('num-before-log-storag','children')],
+               Output('num-before-storage','children')],
                   [ Input('date_range', 'start_date'),
                   Input('date_range', 'end_date')])
 def get_before_log(start_date, end_date):
+
+    try:
+        end_date = datetime.strptime(end_date,r'%Y-%m-%d')
+        start_date = datetime.strptime(start_date, r'%Y-%m-%d')
+    except TypeError as error:      
+        print(error)
+        print("Start day and end day have wrong filetype.")
 
     # Select record mode
     try: 
@@ -235,23 +271,32 @@ def get_before_log(start_date, end_date):
         else: 
             storage_end_date = end_date + timedelta(days=-1)
             run_log_df = get_data_str(start_date, storage_end_date, channels_auto, path_data_auto)
+        
         num = len(run_log_df)                       
         json_data = run_log_df.to_json(orient='split')
+
+        return json_data, str(num)
 
     except FileNotFoundError as error:      
         print(error)
         print("Please verify if the data is placed in the correct directory.")
         return None, '0'
-    return json_data, str(num)
 
 
 # Update today's json data 
 @app.callback([Output('today-log-storage', 'children'),
-               Output('num-today-log-storag','children')],
+               Output('num-today-storage','children')],
                   [Input('interval-log-update', 'n_intervals'), 
                   Input('date_range', 'start_date'),
                   Input('date_range', 'end_date')])
 def get_today_log(n_intervals, start_date, end_date):
+    
+    try:
+        end_date = datetime.strptime(end_date, r'%Y-%m-%d')
+        start_date = datetime.strptime(start_date, r'%Y-%m-%d')
+    except TypeError as error:      
+        print(error)
+        print("Start day and end day have wrong filetype.")
 
     # Select live mode
     try: 
@@ -281,6 +326,7 @@ def get_today_log(n_intervals, start_date, end_date):
 @app.callback(Output('div-num-display', 'children'),
               [Input('num-before-storage', 'children'),Input('num-today-storage', 'children')])
 def update_num_display_and_time(num_before, num_today):  
+
     total_num = int(num_before) + int(num_today)
     
     if total_num != 0:
@@ -296,31 +342,39 @@ def update_num_display_and_time(num_before, num_today):
             Input('display_mode','value'),
             Input('autoscale','n_clicks_timestamp')])
 def update_graph(before, today, selected_dropdown_value, display_mode_value, click):
-    try:   
-        before_df = pd.read_json(before, orient='split')
-        today_df = pd.read_json(today, orient='split')
 
+    try: 
+
+        if (before != None) and (today == None): 
+            before_df = pd.read_json(before, orient='split')
+            df = before_df
+        elif  (before == None) and (today != None): 
+            today_df = pd.read_json(today, orient='split')
+            df = today_df
+        else:
+            before_df = pd.read_json(before, orient='split')
+            today_df = pd.read_json(today, orient='split')
+            df = pd.concat(before_df, today_df, axis=0)
 
     except FileNotFoundError as error:
+        # empty dataframe
+        
+        df = pd.DataFrame()
         print(error)
         print("Please verify if the json file is correct.")
         print("Please verify if the data is placed in the correct directory.")
 
-    # create vide trace
+    # create empty trace
     trace = []
     for channel in selected_dropdown_value:
         key_time = 'Time_'+channel
         key = channel
-        
-        temp_before = pd.concat([before_df[key_time], before_df[key]], axis=1)
-        temp_today = pd.concat([today_df[key_time], today_df[key]], axis=1)
 
-        temp_before[key_time] = datetime.strptime(temp_before[key_time], r'%y%m%d %H:%M:%S')
-        temp_today[key_time] = datetime.strptime(temp_today[key_time], r'%y%m%d %H:%M:%S')
+        temp_df = pd.concat([df[key_time], df[key]], axis=1)
 
-        temp = pd.concat([temp_before, temp_today], axis=0)
+        temp_df[key_time] = pd.to_datetime(temp_df[key_time], format=r'%Y%m%d %H:%M:%S')
 
-        trace.append(go.Scatter(x=temp[key_time], y=temp[key],mode='lines',
+        trace.append(go.Scatter(x=temp_df[key_time], y=temp_df[key],mode='lines',
         
         opacity=0.7,name=channel, textposition='bottom center'))
 
