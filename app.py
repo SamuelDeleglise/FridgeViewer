@@ -1,222 +1,193 @@
 # In[]:
+# Import required libraries
 import os
-import dash
-import dash_core_components as dcc
-import dash_html_components as html
-import dash_bootstrap_components as dbc
-from dash.dependencies import Input, Output
+import pickle
+import copy
+import datetime as dt
 
 import pandas as pd
+from flask import Flask
+from flask_cors import CORS
+import dash
+from dash.dependencies import Input, Output, State
+import dash_core_components as dcc
+import dash_html_components as html
+from datetime import timedelta, date, time, datetime
 import plotly.graph_objs as go
 from plotly import tools
 import numpy as np
-from datetime import timedelta, date, time, datetime
 
 from data import*
+# Multi-dropdown options
 
+app = dash.Dash(__name__)
 
-
-external_stylesheets = ['https://rayonde.github.io/external_css/fridge.css']
-app = dash.Dash(__name__, external_stylesheets=[external_stylesheets])
+app.css.append_css({'external_url': 'https://rayonde.github.io/external_css/fridge.css'})  
 server = app.server
-app.config.suppress_callback_exceptions = True
+CORS(server)
 
-#########################################################
-# Settings
-# It requires that time series are same
-CHANNELS = ['CH1 T', 'CH2 T', 'CH5 T', 'CH6 T']
-LEVELS = ['He3', 'Optical power','Optical reader']
-
-PATH_DATA = r'LOGS\DummyFridge\data'
-# Date range
-MIN_DATE_ALLOWED = date(2018, 8, 5)
-MAX_DATE_ALLOWED = date.today()
-INITIAL_MONTH = date.today()
-TODAY_DATE  = date.today()
-TEST_MODE = True
-years_auto = ['DummyFridge']
-experiments_auto = ['2019']
-#########################################################
-if 'DYNO' in os.environ:
-    app_name = os.environ['FridgeViewer']
-else:
-    app_name = 'dash-timeseriesplot'
-
-#########################################################
-# Layout of page
-
-app.layout = html.Div([
-    
-    # Banner display
-    html.Div([
-        # Title
-        html.H1('FridgeViewer',
-                id='title',
-                className='eight columns',
-     ),
-        # Logo
-        html.Img(src="https://rayonde.github.io/external_image/Logo_LKB.png",
-                style={ 'top': '5px',
-                    'height': '70px',
+channels_auto = ['CH1 T']
+years_auto = ['2019']
+experiments_auto = ['DummyFridge']
+min_date = datetime(2019, 4, 13)
+max_date = datetime(2019, 4, 14)
+initial_month = datetime(2019, 4, 13)
+initial_end_date = datetime(2019, 4, 14)
+initial_start_date = datetime(2019, 4, 13)
+path_data_auto = r'LOGS\DummyFridge\data'
+color_list = ["#5E0DAC", '#FF4F00', '#375CB1', '#FF7400', '#FFF400', '#FF0056']
+test_data = get_data_str(datetime(2019, 4, 13), datetime(2019, 4, 13), channels_auto, path_data_auto)
+# Create app layout
+app.layout = html.Div(
+    [   
+        # # Hidden Div Storing JSON-serialized dataframe of run log
+        html.Div(id='before-log-storage', style={'display': 'none'}),
+        html.Div(id='today-log-storage', style={'display': 'none'}),
+        html.Div(id='num-before-log-storage', style={'display': 'none'}),
+        html.Div(id='num-today-log-storage', style={'display': 'none'}),
+        
+        html.Div(
+            [
+                html.H1(
+                    'Fridge Viewer',
+                    className='eight columns',
+                ),
+                html.Img(
+                    src="https://rayonde.github.io/external_image/Logo_LKB.png",
+                   
+                    style={ 'height': '70px',
                     'float': 'right',
                     'position': 'relative',
-                    'right': '15px'
-                },
-                className='one columns',
-        )
-    ],className="row", style={'margin-top': '10px','margin-bottom': '10px'}
-    ),
-
-    
-    # Body
-    html.Div([
-        html.Div([
-                html.H3('Settings',
-                    id = 'settings-title',
+                    },
                 ),
-        ], id = 'setting-title-framework',
+        ],className='row' , style={'margin-top': 5, 'margin-bottom': 5,}
+        ),
+        
+        html.Div(
+            [
+            html.Div([
+                html.P('Experiment:'),
+                
+                html.Div([
+                    dcc.Dropdown( id ='experiment',
+                    options=[{'label': i, 'value': i} for i in experiments_auto],
+                    multi=False,
+                    value= experiments_auto[0],
+                     ),
+                ]
+                ), 
+            ], id='experiment-framework',className='six columns'
+            ),
+        
+            html.Div([
+                html.P('Year:'), 
+                html.Div([
+                    dcc.Dropdown(id='year',
+                    options=[{'label': i, 'value': i} for i in years_auto],
+                    multi=False,
+                    value= years_auto[-1],
+                    ),
+                ]
+                ), 
+
+            ], id='years-framework', className='six columns'
+            )
+        ],className='row' , style={'margin-top': 5, 'margin-bottom': 5,}
         ),
 
         html.Div([
-            html.P('Experiment:'), 
+            
             html.Div([
-                dcc.Dropdown( id ='experiment',
-                    options=[{'label': i, 'value': i} for i in experiments_auto],
-                    multi=True,
-                    value= experiments_auto[0],
-                ),
-            ]), 
-        ], id='experiment-framework',className='six columns'),
-        
-        html.Div([
-            html.P('Year:'), 
-            html.Div([
-                dcc.Dropdown(id='year',
-                    options=[{'label': i, 'value': i} for i in years_auto],
-                    multi=True,
-                    value= years_auto[-1],
-                ),
-            ]), 
-        ], id='years-framework', className='six columns'),
-
-    ],className="row"
-    ),
-
-    dbc.Row(className="Row", children=[
-        dbc.Col([
-
-            html.Div([
-                html.H2('Select the signal channel'),
+                html.P('Select the signal channel'),
                 # head style
             ], style={'margin-left': '0px','margin-top': '0px'}
             ),
 
-
-            dbc.Row([    
+            html.Div([    
                 # Channel selection dropdown
                 dcc.Dropdown(id='channels_dropdown',
-                        options=[{'label': i, 'value': i} for i in CHANNELS],
+                        options=[{'label': i, 'value': i} for i in channels_auto],
                         # defaut selections
-                        value=CHANNELS,
+                        value=channels_auto,
                         multi=True,
                 )
                # channel selection style
-            ], style = {'left':'15px', 'right':'15px'}
+            ]
             ),
+        ],className='row' , style={'margin-top': 5, 'margin-bottom': 5,}
+        ),
+
+        html.Div([
             
+            # Live mode or not according to end_date
             # Real time control
-            dcc.Interval(id="interval-log-update",
+            dcc.Interval(
+                id='interval-log-update',
+                interval=1*1000, # in milliseconds
                 n_intervals=0
             ),
 
-            dbc.Row([
-               #dcc.Graph(id='temperature-graph')
-            
-               # temperature graph style
-            ], id='graph_framework', style = {'left':'0px', 'right':'0px'}
+            html.Div([
+                dcc.Graph(id='temperature-graph' )
+            ],id='graph_framework', className ='nine columns'
             ),
-            
-            # # Hidden Div Storing JSON-serialized dataframe of run log
-            # html.Div(id='run-log-storage', style={'display': 'none'}),
- 
-            # temperature col style
-            ], className='graph col', style={'width': '80%','float': 'left', 'padding': 5, 'margin': 0, 'display': 'inline-block'}
-        ),
+            html.Div([
+                html.Div([
+                    html.P("Scale:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
 
-        dbc.Col([
+                    dcc.DatePickerRange(id='date_range',
 
-            dbc.Row([
-                html.P("Scale:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
-
-                dcc.DatePickerRange(id='date_range',
-
-                        end_date = date(2019, 4, 14),
-                        start_date = date(2019, 4, 13),
+                        end_date = initial_end_date,
+                        start_date = initial_start_date,
+                        min_date_allowed=min_date,
+                        max_date_allowed=max_date,
+                        initial_visible_month=initial_month,
                         style={'width': '100%'},
 
-                        # min_date_allowed=MIN_DATE_ALLOWED,
-                        # max_date_allowed=MAX_DATE_ALLOWED,
-                        # initial_visible_month=INITIAL_MONTH,
-                        # end_date=TODAY_DATE,
-                        # start_date= TODAY_DATE,
-                        # style={'width': '100%'}
-                )
-            # date range style
-            ],style={'width': '100%', 'margin-bottom': '20px' }
-            ),
-            
-            
-            dbc.Row([
-                html.P("Update Speed:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
-
-                html.Div(id='div-interval-control', children=[
-                    dcc.Dropdown(id='dropdown-interval-control',
-                        options=[
-                            {'label': 'No Updates', 'value': 'no'},
-                            {'label': 'Slow Updates', 'value': 'slow'},
-                            {'label': 'Regular Updates', 'value': 'regular'},
-                            {'label': 'Fast Updates', 'value': 'fast'}
-                        ],
-                        value='regular',
-                        className='ten columns',
-                        clearable=False,
-                        searchable=False
-                    ),
-                ]),
-            ], className='side bar', style={'width': '100%', 'margin-bottom': '20px' }
-            ),
-
-            dbc.Row([
-                html.P("Plot Display mode:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
-
-                dcc.RadioItems(
-                    options=[
-                        {'label': ' Overlapping', 'value': 'overlap'},
-                        {'label': ' Separate', 'value': 'separate'},
-                    ],
-                    value='overlap',
-                    id='display_mode'
+                    )
+                ],id='range_framework',style={'width': '100%', 'margin-bottom': '20px'}
                 ),
-            ],  className='side bar', style={'width': '100%', 'margin-bottom': '20px' }
-            ),
-                
-            dbc.Row(id="div-num-display",
-                    className='side bar'
-            )
-          # selection block style
-        ], className='selected col', style={'width': '15%', 'height':'100%', 'float': 'right', 'padding': 15, 'margin': 5, 'borderRadius': 5, 'border': 'thin lightgrey solid'}
-        ),
-    ]),
-        
-        
-    # Markdown Description
-    html.Div(className='text',children=[
-        html.Div(children=dcc.Markdown(),
-                style={'width': '80%','margin': '30px auto'}
-        )
-    ]),
-], className="ten columns offset-by-one")
 
+                html.Div([
+                    html.P("Plot Display mode:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
+
+                    dcc.RadioItems(
+                        options=[
+                            {'label': ' Overlapping', 'value': 'overlap'},
+                            {'label': ' Separate', 'value': 'separate'},
+                        ],
+                        value='overlap',
+                        id='display_mode'
+                    ),
+                ], style={'width': '100%', 'margin-bottom': '20px' }
+                ),
+
+                html.Div(id="div-num-display",
+                    style={'width': '100%', 'margin-bottom': '20px' }
+                ),
+                html.Div([html.Button('Autoscale', id='autoscale', n_clicks_timestamp=0),],
+                    style={'width': '100%', 'margin-bottom': '20px' }
+                ),
+                
+
+
+            ],id='select_framework', className ='three columns', style={
+                                'height':'100%', 
+                                'float': 'right', 
+                                'padding': 15, 
+                                'margin': 5, 
+                                'borderRadius': 5, 
+                                'border': 'thin lightgrey solid'}
+            )
+        ],className='row', style={'margin-top': 5, 'margin-bottom': 5,}
+        ),
+            
+    ],
+    className='ten columns offset-by-one'
+)
+
+
+########################################################
 
 # Callback the update speed
 @app.callback(Output('interval-log-update', 'interval'),
@@ -236,62 +207,103 @@ def update_interval_log_update(interval_rate):
     elif interval_rate == 'no':
         return 24 * 60 * 60 * 1000
 
-# Just get a hidden data
-@app.callback(Output('run-log-storage', 'children'),
+# 
+@app.callback(Output('dropdown-interval-control', 'value'),
+                [Input('date_range', 'start_date'),
+                 Input('date_range', 'end_date')])
+def storage_mode(start_date, end_date):
+    # Select record mode
+    if end_date.date() < datetime.today().date():
+        return 'no'
+    else: 
+        pass
+
+# Dash can't have the same Input and Output
+# Save the data as json file in cache
+@app.callback([Output('before-log-storage', 'children'),
+               Output('num-before-log-storag','children')],
+                  [ Input('date_range', 'start_date'),
+                  Input('date_range', 'end_date')])
+def get_before_log(start_date, end_date):
+
+    # Select record mode
+    try: 
+
+        if end_date.date() < datetime.today().date():
+            storage_end_date = end_date
+            run_log_df = get_data_str(start_date, storage_end_date, channels_auto, path_data_auto)      
+        else: 
+            storage_end_date = end_date + timedelta(days=-1)
+            run_log_df = get_data_str(start_date, storage_end_date, channels_auto, path_data_auto)
+        num = len(run_log_df)                       
+        json_data = run_log_df.to_json(orient='split')
+
+    except FileNotFoundError as error:      
+        print(error)
+        print("Please verify if the data is placed in the correct directory.")
+        return None, '0'
+    return json_data, str(num)
+
+
+# Update today's json data 
+@app.callback([Output('today-log-storage', 'children'),
+               Output('num-today-log-storag','children')],
                   [Input('interval-log-update', 'n_intervals'), 
                   Input('date_range', 'start_date'),
                   Input('date_range', 'end_date')])
-def get_run_log(n_intervals, start_date, end_date):
-    try:
-        if TEST_MODE:
-            run_log_df = test_data
-            print('1')
-            print(run_log_df)
-            print(run_log_df['Time_CH1 T'])
-            print(run_log_df['Time_CH5 T'])
-         
+def get_today_log(n_intervals, start_date, end_date):
+
+    # Select live mode
+    try: 
+        if end_date.date() < datetime.today().date():
+            return None,'0'
+        elif end_date.date() == datetime.today().date(): 
+            try:
+                today_log_df = get_data_str(datetime.today(), datetime.today(), channels_auto, path_data_auto)
+            except FileNotFoundError as error:      
+                print(error)
+                print("There is no data is placed in the today's directory.")
+                return None, '0'
         else: 
-            run_log_df = get_data(start_date, end_date, CHANNELS)
-        
-        json_data = run_log_df.to_json(orient='split')
-        # print('This is json', json_data)
-    except FileNotFoundError as error:
-       
+            print(FileNotFoundError)
+            print("The election of time range is wrong.")
+            return None, '0'  
+        num =len(today_log_df)             
+        today_data = today_log_df.to_json(orient='split')
+
+    except FileNotFoundError as error:      
         print(error)
         print("Please verify if the data is placed in the correct directory.")
-        return None
-    return json_data
+        return None, '0'
+    return today_data, str(num)
 
+# display the data size
 @app.callback(Output('div-num-display', 'children'),
-              [Input('run-log-storage', 'children')])
-def update_num_display_and_time(run_log_json):
-    if run_log_json:
-        
-        run_log_df = pd.read_json(run_log_json, orient='split')
-
+              [Input('num-before-storage', 'children'),Input('num-today-storage', 'children')])
+def update_num_display_and_time(num_before, num_today):  
+    total_num = int(num_before) + int(num_today)
+    
+    if total_num != 0:
         return html.Div([html.P("Number of data points:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
-                html.H2(f"{run_log_df.shape[0]}", style={'margin-top': '3px'})])
+                html.H2('{0}'.format(total_num), style={'margin-top': '3px'})])
     else:
         print('There is no cache data')
 
-
-@app.callback(Output('graph_framework', 'children'),
-            [Input('date_range', 'start_date'),
-            Input('date_range', 'end_date'),   # Input('run-log-storage', 'children')
+@app.callback(Output('temperature-graph', 'figure'),
+            [Input('before-log-storage', 'children'),
+             Input('today-log-storage', 'children'),
             Input('channels_dropdown', 'value'),
-            Input('interval-log-update', 'n_intervals'),
-            Input('display_mode','value')])
-def update_graph(start_date, end_date, selected_dropdown_value, n_intervals, display_mode_value):
-    try:
-        if TEST_MODE:
-            df = test_data    
-        else:
-            start_date = datetime.strptime(start_date, r'%Y-%m-%d')
-            end_date = datetime.strptime(end_date, r'%Y-%m-%d')
-            df = get_data(start_date, end_date, CHANNELS)
+            Input('display_mode','value'),
+            Input('autoscale','n_clicks_timestamp')])
+def update_graph(before, today, selected_dropdown_value, display_mode_value, click):
+    try:   
+        before_df = pd.read_json(before, orient='split')
+        today_df = pd.read_json(today, orient='split')
+
 
     except FileNotFoundError as error:
         print(error)
+        print("Please verify if the json file is correct.")
         print("Please verify if the data is placed in the correct directory.")
 
     # create vide trace
@@ -299,47 +311,63 @@ def update_graph(start_date, end_date, selected_dropdown_value, n_intervals, dis
     for channel in selected_dropdown_value:
         key_time = 'Time_'+channel
         key = channel
+        
+        temp_before = pd.concat([before_df[key_time], before_df[key]], axis=1)
+        temp_today = pd.concat([today_df[key_time], today_df[key]], axis=1)
 
-        df[key_time] = pd.to_datetime(df[key_time])
+        temp_before[key_time] = datetime.strptime(temp_before[key_time], r'%y%m%d %H:%M:%S')
+        temp_today[key_time] = datetime.strptime(temp_today[key_time], r'%y%m%d %H:%M:%S')
 
-        trace.append(go.Scatter(x=df[key_time], y=df[key],mode='lines',
+        temp = pd.concat([temp_before, temp_today], axis=0)
+
+        trace.append(go.Scatter(x=temp[key_time], y=temp[key],mode='lines',
+        
         opacity=0.7,name=channel, textposition='bottom center'))
 
     data = trace
     if display_mode_value == 'overlap':
         figure = {'data': data,
-        'layout': go.Layout(colorway=["#5E0DAC", '#FF4F00', '#375CB1', '#FF7400'], # '#FFF400', '#FF0056'
-        height=600,title=" The temperature monitor",
-        xaxis={"title":"Date",
-                   'rangeselector': {'buttons': list([{'count': 1, 'label': 'last 1 hour', 'step': 'hour', 'stepmode': 'backward'},
-                                                      {'count': 6, 'label': 'last 6 hour', 'step': 'hour', 'stepmode': 'backward'},
-                                                      {'step': 'all'}])},
-                   'rangeslider': {'visible': True}, 'type': 'date'},yaxis={"title":"Temperature"})}
-        
-        return  dcc.Graph(figure=figure, id='temperature-graph') 
+            'layout': {'colorway': color_list,
+                       'height':600,
+                       'title':" The sensor channel monitor",
+                        'xaxis':{"title":"Date",
+                            'rangeselector': {'buttons': list([
+                                {'count': 10, 'label': 'last 10 mins', 'step': 'minute', 'stepmode': 'backward'},
+                                {'count': 1, 'label': 'last 1 hour', 'step': 'hour', 'stepmode': 'backward'},
+                                {'count': 6, 'label': 'last 6 hour', 'step': 'hour', 'stepmode': 'backward'},
+                                {'step': 'all'}])},
+                        'rangeslider': {'visible': True}, 'type': 'date'},
+                        'yaxis' : {"title":"Value"},
+                       'uirevision': click,}}
+        return  figure
 
     elif display_mode_value == 'separate':
-        print('separate')
-        graph_group = []
-        color = ["#5E0DAC", '#FF4F00', '#375CB1', '#FF7400']
-        for tra, chan, col in zip(trace, selected_dropdown_value, color):
-            print(type(tra))
-            t = [tra]
-            figure = {'data': t,
-                     'layout': go.Layout(colorway=[col],
-                     height=400,title=" The temperature of {0}".format(chan),
-                     xaxis={"title":"Date",
-                    'rangeselector': {'buttons': list([{'count': 1, 'label': 'last 1 hour', 'step': 'hour', 'stepmode': 'backward'},
-                                                      {'count': 6, 'label': 'last 6 hours', 'step': 'hour', 'stepmode': 'backward'},
-                                                      {'step': 'all'}])},
-                   'rangeslider': {'visible': False}, 'type': 'date'},yaxis={"title":"Temperature"})}
-            graph_group.append(dcc.Graph(figure=figure, id='temperature_{0}'.format(chan)))
-        
 
-        return graph_group
+        num =  len(selected_dropdown_value)
+
+        fig = tools.make_subplots(rows=num, cols=1)
+        
+        color_small_list = color_list[:num]
+
+        for index, (tra, chan, col) in enumerate(zip(trace, selected_dropdown_value, color_small_list)):
+            fig.append_trace(tra, index, 1)
+            fig['layout'] = {'colorway': color_list,
+                       'height':600,
+                       'title':" The sensor channel monitor",
+                        'xaxis':{"title":"Date",
+                            'rangeselector': {'buttons': list([
+                                {'count': 10, 'label': 'last 10 mins', 'step': 'minute', 'stepmode': 'backward'},
+                                {'count': 1, 'label': 'last 1 hour', 'step': 'hour', 'stepmode': 'backward'},
+                                {'count': 6, 'label': 'last 6 hour', 'step': 'hour', 'stepmode': 'backward'},
+                                {'step': 'all'}])},
+                        'rangeslider': {'visible': True}, 'type': 'date'},
+                        'yaxis' : {"title":"Value"},
+                       'uirevision': click,}                 
+        return fig
     else:
         print('The creation of graph figure fails')
-    
 
+
+# Main
 if __name__ == '__main__':
-    app.run_server(debug=True, use_reloader=False,host='localhost')
+    app.server.run(debug=True, threaded=True)
