@@ -8,7 +8,6 @@ from datetime import timedelta, date, time, datetime
 #########################################################
 # Settings
 
-
 path_data = r'LOGS\DummyFridge\data'
 # Date range
 MIN_DATE_ALLOWED = datetime(2018, 8, 5)
@@ -20,48 +19,6 @@ TEST_MODE = False
 path_test = r'C:\Users\YIFAN\Documents\GitHub\FridgeViewer\LOGS\DummyFridge\data\2019\19-04-13'
 path_test2 = r'C:\Users\YIFAN\Documents\GitHub\FridgeViewer\LOGS'
 ########################################################
-
-
-def all_file_paths(path, filetype='.log'):
-    """ return all paths of .logf iles in one directory 
-    """
-    all_files = glob.glob(path + '/*'+filetype)
-    return all_files
-
-def all_folder_paths(path):
-    """ return all paths of folder in one directory 
-    """
-    all_folders = glob.glob(path + '/*')
-    return all_folders
-
-def path_leaf(path):
-    """ remove / or \
-    """
-    head, tail = ntpath.split(path)
-    return tail or ntpath.basename(head)
-
-def get_folder(all_folders_or_files):
-    """ return all folder names as a list
-    """
-    folders = []
-    pattern = re.compile(r'\.\w+')
-    for item in all_folders_or_files:
-        if  re.search(pattern, path_leaf(item)) ==None:
-            folders.append(re.sub(pattern,'', path_leaf(item)))
-        else: pass
-    return folders
-
-
-
-def get_file_channels(all_files):
-    """ return all file names as list
-    """
-    names = []
-    pattern = re.compile(r'(\s|\_)\d+\-\d+\-\d+\.\w+')
-    
-    for filepath in all_files:
-        names.append(re.sub(pattern,'', path_leaf(filepath)))
-    return names
 
 
 

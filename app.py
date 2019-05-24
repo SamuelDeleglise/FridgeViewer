@@ -22,21 +22,12 @@ from data import*
 
 app = dash.Dash(__name__)
 
+#https://codepen.io/chriddyp/pen/bWLwgP.css
 app.css.append_css({'external_url': 'https://rayonde.github.io/external_css/fridge.css'})  
 server = app.server
 CORS(server)
 
-channels_auto = ['CH1 T']
-years_auto = ['2019']
-experiments_auto = ['DummyFridge']
-min_date = datetime(2019, 4, 13)
-max_date = datetime(2019, 4, 14)
-initial_month = datetime(2019, 4, 13)
-initial_end_date = datetime(2019, 4, 14)
-initial_start_date = datetime(2019, 4, 13)
-path_data_auto = r'LOGS\DummyFridge\data'
-color_list = ["#5E0DAC", '#FF4F00', '#375CB1', '#FF7400', '#FFF400', '#FF0056']
-test_data = get_data_str(datetime(2019, 4, 13), datetime(2019, 4, 13), channels_auto, path_data_auto)
+
 # Create app layout
 app.layout = html.Div(
     [   
@@ -45,6 +36,7 @@ app.layout = html.Div(
         html.Div(id='today-log-storage', style={'display': 'none'}),
         html.Div(id='num-before-storage', style={'display': 'none'}),
         html.Div(id='num-today-storage', style={'display': 'none'}),
+        
         
         html.Div(
             [
@@ -128,9 +120,9 @@ app.layout = html.Div(
             ),
 
             html.Div([
-                dcc.Graph(id='temperature-graph' )
-            ],id='graph_framework', className ='nine columns'
-            ),
+                dcc.Graph(id='temperature-graph',)
+            ],id='graph_framework', className ='nime columns',style={'width': '76%','float':'left','border': 'thin lightgrey solid','borderRadius': 5}),
+
             html.Div([
                 html.Div([
                     html.P("Scale:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
@@ -174,7 +166,7 @@ app.layout = html.Div(
                                 {'label': 'Fast Updates', 'value': 'fast'}
                             ],
                             value='regular',
-                            className='ten columns',
+                            style= {'width': '100%'},
                             clearable=False,
                             searchable=False
                         )
@@ -182,34 +174,38 @@ app.layout = html.Div(
                 ], style={'width': '100%', 'margin-bottom': '20px' }
                 ),
 
+                html.Div([
+                    html.P("Number of data points:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
+                    
+                    html.Div(id="div-num-display")
 
-                html.Div(id="div-num-display",
-                    style={'width': '100%', 'margin-bottom': '20px' }
+                ],style={'width': '100%', 'margin-bottom': '20px' }
                 ),
                 
-                html.Div([html.Button('Autoscale', id='autoscale', n_clicks_timestamp=0),],
-                    style={'width': '100%', 'margin-bottom': '20px' }
+                html.Div([
+                    html.Button('Autoscale', 
+                                    id='autoscale', 
+                                    n_clicks_timestamp=0,
+                                    style= {'width': '100%'})
+                ], style={'width': '100%', 'margin-bottom': '20px' }
                 ),
-                
-
-
             ],id='select_framework', className ='three columns', style={
                                 'height':'100%', 
                                 'float': 'right', 
-                                'padding': 15, 
-                                'margin': 5, 
+                                'padding': 15,  
                                 'borderRadius': 5, 
                                 'border': 'thin lightgrey solid'}
             )
         ],className='row', style={'margin-top': 5, 'margin-bottom': 5,}
         ),
             
-    ],
+    ],id ='page',
     className='ten columns offset-by-one'
 )
 
 
 ########################################################
+
 
 # Callback the update speed
 @app.callback(Output('interval-log-update', 'interval'),
@@ -291,6 +287,7 @@ def get_before_log(start_date, end_date):
                   Input('date_range', 'end_date')])
 def get_today_log(n_intervals, start_date, end_date):
     
+
     try:
         end_date = datetime.strptime(end_date, r'%Y-%m-%d')
         start_date = datetime.strptime(start_date, r'%Y-%m-%d')
@@ -327,11 +324,15 @@ def get_today_log(n_intervals, start_date, end_date):
               [Input('num-before-storage', 'children'),Input('num-today-storage', 'children')])
 def update_num_display_and_time(num_before, num_today):  
 
+    if num_before ==None:
+        num_before = '0'
+    if num_today==None:
+        num_today = '0'
+
     total_num = int(num_before) + int(num_today)
     
     if total_num != 0:
-        return html.Div([html.P("Number of data points:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
-                html.H2('{0}'.format(total_num), style={'margin-top': '3px'})])
+        return html.H2('{0}'.format(total_num), style={ 'margin-top': '3px'})
     else:
         print('There is no cache data')
 
@@ -354,7 +355,7 @@ def update_graph(before, today, selected_dropdown_value, display_mode_value, cli
         else:
             before_df = pd.read_json(before, orient='split')
             today_df = pd.read_json(today, orient='split')
-            df = pd.concat(before_df, today_df, axis=0)
+            df = pd.concat([before_df, today_df], axis=0)
 
     except FileNotFoundError as error:
         # empty dataframe
@@ -386,13 +387,13 @@ def update_graph(before, today, selected_dropdown_value, display_mode_value, cli
                        'title':" The sensor channel monitor",
                         'xaxis':{"title":"Date",
                             'rangeselector': {'buttons': list([
-                                {'count': 10, 'label': 'last 10 mins', 'step': 'minute', 'stepmode': 'backward'},
-                                {'count': 1, 'label': 'last 1 hour', 'step': 'hour', 'stepmode': 'backward'},
-                                {'count': 6, 'label': 'last 6 hour', 'step': 'hour', 'stepmode': 'backward'},
+                                {'count': 10, 'label': '10m', 'step': 'minute', 'stepmode': 'backward'},
+                                {'count': 1, 'label': '1h', 'step': 'hour', 'stepmode': 'backward'},
+                                {'count': 6, 'label': '6h', 'step': 'hour', 'stepmode': 'backward'},
                                 {'step': 'all'}])},
                         'rangeslider': {'visible': True}, 'type': 'date'},
                         'yaxis' : {"title":"Value"},
-                       'uirevision': click,}}
+                        'uirevision': click,}}
         return  figure
 
     elif display_mode_value == 'separate':
@@ -404,15 +405,16 @@ def update_graph(before, today, selected_dropdown_value, display_mode_value, cli
         color_small_list = color_list[:num]
 
         for index, (tra, chan, col) in enumerate(zip(trace, selected_dropdown_value, color_small_list)):
+            
             fig.append_trace(tra, index, 1)
-            fig['layout'] = {'colorway': color_list,
+            fig['layout'] = {'colorway': col,
                        'height':600,
-                       'title':" The sensor channel monitor",
+                       'title':" The channel of {0}".format(chan),
                         'xaxis':{"title":"Date",
                             'rangeselector': {'buttons': list([
-                                {'count': 10, 'label': 'last 10 mins', 'step': 'minute', 'stepmode': 'backward'},
-                                {'count': 1, 'label': 'last 1 hour', 'step': 'hour', 'stepmode': 'backward'},
-                                {'count': 6, 'label': 'last 6 hour', 'step': 'hour', 'stepmode': 'backward'},
+                                {'count': 10, 'label': '10m ', 'step': 'minute', 'stepmode': 'backward'},
+                                {'count': 1, 'label': '1h', 'step': 'hour', 'stepmode': 'backward'},
+                                {'count': 6, 'label': '6h', 'step': 'hour', 'stepmode': 'backward'},
                                 {'step': 'all'}])},
                         'rangeslider': {'visible': True}, 'type': 'date'},
                         'yaxis' : {"title":"Value"},
