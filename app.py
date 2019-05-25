@@ -1,8 +1,6 @@
 # In[]:
 # Import required libraries
 import os
-import pickle
-import copy
 import datetime as dt
 
 import pandas as pd
@@ -18,7 +16,6 @@ from plotly import tools
 import numpy as np
 
 from data import*
-# Multi-dropdown options
 
 app = dash.Dash(__name__)
 
@@ -26,6 +23,8 @@ app = dash.Dash(__name__)
 app.css.append_css({'external_url': 'https://rayonde.github.io/external_css/fridge.css'})  
 server = app.server
 CORS(server)
+
+
 
 channels_auto = ['CH1 T', 'CH2 T']
 years_auto = ['2019']
@@ -40,179 +39,182 @@ path_lab = r'LOGS'
 
 color_list = ["#5E0DAC", '#FF4F00', '#375CB1', '#FF7400', '#FFF400', '#FF0056']
 
+def create_cache_div(name):
+    return dcc.Store(id='{0}-log-storage'.format(name), storage_type='session')
 
 
 # Create app layout
-app.layout = html.Div(
-    [   
-        # # Hidden Div Storing JSON-serialized dataframe of run log
+app.layout = html.Div([ 
+
+    # Hidden Div Storing JSON-serialized dataframe of run log
+    html.Div([
         html.Div(id='before-log-storage', style={'display': 'none'}),
         html.Div(id='today-log-storage', style={'display': 'none'}),
-        html.Div(id='num-before-storage', style={'display': 'none'}),
-        html.Div(id='num-today-storage', style={'display': 'none'}),
-        
-        
-        html.Div(
-            [
-                html.H1(
-                    'Fridge Viewer',
-                    className='eight columns',
-                ),
-                html.Img(
-                    src="https://rayonde.github.io/external_image/Logo_LKB.png",
-                   
-                    style={ 'height': '70px',
-                    'float': 'right',
-                    'position': 'relative',
-                    },
-                ),
-        ],className='row' , style={'margin-top': 5, 'margin-bottom': 5,}
-        ),
-        
-        html.Div(
-            [
-            html.Div([
-                html.P('Experiment:'),
-                
-                html.Div([
-                    dcc.Dropdown( id ='experiment',
-                    options=[{'label': i, 'value': i} for i in experiments_auto],
-                    multi=False,
-                    value= experiments_auto[0],
-                     ),
-                ]
-                ), 
-            ], id='experiment-framework',className='six columns'
+        dcc.Store(id='num-before-storage', storage_type='session'),
+        dcc.Store(id='num-today-storage', storage_type='session'),
+    ], id = 'cache'
+    ),
+    
+    html.Div(
+        [
+            html.H1(
+                'Fridge Viewer',
+                className='eight columns',
             ),
-        
-            html.Div([
-                html.P('Year:'), 
-                html.Div([
-                    dcc.Dropdown(id='year',
-                    options=[{'label': i, 'value': i} for i in years_auto],
-                    multi=False,
-                    value= years_auto[-1],
-                    ),
-                ]
-                ), 
-
-            ], id='years-framework', className='six columns'
-            )
-        ],className='row' , style={'margin-top': 5, 'margin-bottom': 5,}
-        ),
-
+            html.Img(
+                src="https://rayonde.github.io/external_image/Logo_LKB.png",
+                
+                style={ 'height': '70px',
+                'float': 'right',
+                'position': 'relative',
+                },
+            ),
+    ],className='row' , style={'margin-top': 5, 'margin-bottom': 5,}
+    ),
+    
+    html.Div(
+        [
         html.Div([
+            html.P('Experiment:'),
             
             html.Div([
-                html.P('Select the signal channel'),
-                # head style
-            ], style={'margin-left': '0px','margin-top': '0px'}
-            ),
-
-            html.Div([    
-                # Channel selection dropdown
-                dcc.Dropdown(id='channels_dropdown',
-                        options=[{'label': i, 'value': i} for i in channels_auto],
-                        # defaut selections
-                        value=channels_auto,
-                        multi=True,
-                )
-               # channel selection style
+                dcc.Dropdown( id ='experiment',
+                options=[{'label': i, 'value': i} for i in experiments_auto],
+                multi=False,
+                value= experiments_auto[0],
+                    ),
             ]
-            ),
-        ],className='row' , style={'margin-top': 5, 'margin-bottom': 5,}
+            ), 
+        ], id='experiment-framework',className='six columns'
+        ),
+    
+        html.Div([
+            html.P('Year:'), 
+            html.Div([
+                dcc.Dropdown(id='year',
+                options=[{'label': i, 'value': i} for i in years_auto],
+                multi=False,
+                value= years_auto[-1],
+                ),
+            ]
+            ), 
+
+        ], id='years-framework', className='six columns'
+        )
+    ],className='row' , style={'margin-top': 5, 'margin-bottom': 5,}
+    ),
+
+    html.Div([
+        
+        html.Div([
+            html.P('Select the signal channel'),
+            # head style
+        ], style={'margin-left': '0px','margin-top': '0px'}
+        ),
+
+        html.Div([    
+            # Channel selection dropdown
+            dcc.Dropdown(id='channels_dropdown',
+                    options=[{'label': i, 'value': i} for i in channels_auto],
+                    # defaut selections
+                    value=channels_auto,
+                    multi=True,
+            )
+            # channel selection style
+        ]
+        ),
+    ],className='row' , style={'margin-top': 5, 'margin-bottom': 5,}
+    ),
+
+    html.Div([
+        
+        # Live mode or not according to end_date
+        # Real time control
+        dcc.Interval(
+            id='interval-log-update',
+            interval=1*1000, # in milliseconds
+            n_intervals=0
         ),
 
         html.Div([
-            
-            # Live mode or not according to end_date
-            # Real time control
-            dcc.Interval(
-                id='interval-log-update',
-                interval=1*1000, # in milliseconds
-                n_intervals=0
+            dcc.Graph(id='temperature-graph'
+            )
+        ],id='graph_framework', className ='nime columns',style={'float':'left','border': 'thin lightgrey solid','borderRadius': 5}),
+
+        html.Div([
+            html.Div([
+                html.P("Scale:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
+
+                dcc.DatePickerRange(id='date_range',
+                    end_date = initial_end_date,
+                    start_date = initial_start_date,
+                    min_date_allowed=min_date,
+                    max_date_allowed=max_date,
+                    initial_visible_month=initial_month,
+                )
+            ],id='range_framework',style={'width': '100%', 'margin-bottom': '20px'}
             ),
 
             html.Div([
-                dcc.Graph(id='temperature-graph',)
-            ],id='graph_framework', className ='nime columns',style={'width': '76%','float':'left','border': 'thin lightgrey solid','borderRadius': 5}),
+                html.P("Plot Display mode:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
+
+                dcc.RadioItems(
+                    options=[
+                        {'label': ' Overlapping', 'value': 'overlap'},
+                        {'label': ' Separate', 'value': 'separate'},
+                    ],
+                    value='overlap',
+                    id='display_mode'
+                ),
+            ], style={'width': '100%', 'margin-bottom': '20px' }
+            ),
+            
+            html.Div([
+                html.P("Update Speed:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
+
+                html.Div(id='div-interval-control', children=[
+                    dcc.Dropdown(id='dropdown-interval-control',
+                        options=[
+                            {'label': 'No Updates', 'value': 'no'},
+                            {'label': 'Slow Updates', 'value': 'slow'},
+                            {'label': 'Regular Updates', 'value': 'regular'},
+                            {'label': 'Fast Updates', 'value': 'fast'}
+                        ],
+                        value='regular',
+                        style= {'width': '100%'},
+                        clearable=False,
+                        searchable=False
+                    )
+                ]),
+            ], style={'width': '100%', 'margin-bottom': '20px' }
+            ),
 
             html.Div([
-                html.Div([
-                    html.P("Scale:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
-
-                    dcc.DatePickerRange(id='date_range',
-
-                        end_date = initial_end_date,
-                        start_date = initial_start_date,
-                        min_date_allowed=min_date,
-                        max_date_allowed=max_date,
-                        initial_visible_month=initial_month,
-                    )
-                ],id='range_framework',style={'width': '100%', 'margin-bottom': '20px'}
-                ),
-
-                html.Div([
-                    html.P("Plot Display mode:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
-
-                    dcc.RadioItems(
-                        options=[
-                            {'label': ' Overlapping', 'value': 'overlap'},
-                            {'label': ' Separate', 'value': 'separate'},
-                        ],
-                        value='overlap',
-                        id='display_mode'
-                    ),
-                ], style={'width': '100%', 'margin-bottom': '20px' }
-                ),
+                html.P("Number of data points:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
                 
-                html.Div([
-                    html.P("Update Speed:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
+                html.Div(id="div-num-display")
 
-                    html.Div(id='div-interval-control', children=[
-                        dcc.Dropdown(id='dropdown-interval-control',
-                            options=[
-                                {'label': 'No Updates', 'value': 'no'},
-                                {'label': 'Slow Updates', 'value': 'slow'},
-                                {'label': 'Regular Updates', 'value': 'regular'},
-                                {'label': 'Fast Updates', 'value': 'fast'}
-                            ],
-                            value='regular',
-                            style= {'width': '100%'},
-                            clearable=False,
-                            searchable=False
-                        )
-                    ]),
-                ], style={'width': '100%', 'margin-bottom': '20px' }
-                ),
-
-                html.Div([
-                    html.P("Number of data points:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
-                    
-                    html.Div(id="div-num-display")
-
-                ],style={'width': '100%', 'margin-bottom': '20px' }
-                ),
-                
-                html.Div([
-                    html.Button('Autoscale', 
-                                    id='autoscale', 
-                                    n_clicks_timestamp=0,
-                                    style= {'width': '100%'})
-                ], style={'width': '100%', 'margin-bottom': '20px' }
-                ),
-            ],id='select_framework', className ='three columns', style={
-                                'height':'100%', 
-                                'float': 'right', 
-                                'padding': 15,  
-                                'borderRadius': 5, 
-                                'border': 'thin lightgrey solid'}
-            )
-        ],className='row', style={'margin-top': 5, 'margin-bottom': 5,}
-        ),
+            ],style={'width': '100%', 'margin-bottom': '20px' }
+            ),
             
-    ],id ='page',
-    className='ten columns offset-by-one'
+            html.Div([
+                html.Button('Autoscale', 
+                                id='autoscale', 
+                                n_clicks_timestamp=0,
+                                style= {'width': '100%'})
+            ], style={'width': '100%', 'margin-bottom': '20px' }
+            ),
+        ],id='select_framework', className ='three columns', style={
+                            'height':'100%', 
+                            'float': 'right', 
+                            'padding': 15,  
+                            'borderRadius': 5, 
+                            'border': 'thin lightgrey solid'}
+        )
+    ],className='row', style={'margin-top': 5, 'margin-bottom': 5,}
+    ),
+        
+],id ='page', className='ten columns offset-by-one'
 )
 
 
@@ -412,7 +414,7 @@ def update_graph(before, today, selected_dropdown_value, display_mode_value, cli
     for channel in selected_dropdown_value:
         key_time = 'Time_'+channel
         key = channel
-\\\\\\\\\\\\\\\\\\\\\\          ```````     `
+
         temp_df = pd.concat([df[key_time], df[key]], axis=1)
         temp_df[key_time] = pd.to_datetime(temp_df[key_time], format=r'%Y%m%d %H:%M:%S')
 
@@ -432,6 +434,7 @@ def update_graph(before, today, selected_dropdown_value, display_mode_value, cli
                                 {'count': 6, 'label': '6h', 'step': 'hour', 'stepmode': 'backward'},
                                 {'step': 'all'}])},
                         'rangeslider': {'visible': True}, 'type': 'date'},
+                        'margin':{'l': 40, 'b': 40, 't': 10, 'r': 10},
                         'yaxis' : {"title":"Value"},
                         'uirevision': click,}}
         return  figure
@@ -457,6 +460,7 @@ def update_graph(before, today, selected_dropdown_value, display_mode_value, cli
                                 {'count': 6, 'label': '6h', 'step': 'hour', 'stepmode': 'backward'},
                                 {'step': 'all'}])},
                         'rangeslider': {'visible': True}, 'type': 'date'},
+                        'margin':{'l': 40, 'b': 40, 't': 10, 'r': 10},
                         'yaxis' : {"title":"Value"},
                        'uirevision': click,}                 
         return fig
