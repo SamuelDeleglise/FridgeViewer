@@ -27,6 +27,20 @@ app.css.append_css({'external_url': 'https://rayonde.github.io/external_css/frid
 server = app.server
 CORS(server)
 
+channels_auto = ['CH1 T', 'CH2 T']
+years_auto = ['2019']
+experiments_auto = ['DummyFridge']
+min_date = datetime(2019, 4, 13)
+max_date = datetime.today()
+initial_month = datetime(2019, 4, 13)
+initial_end_date = datetime(2019, 4, 14)
+initial_start_date = datetime(2019, 4, 13)
+path_data_auto = r'LOGS\DummyFridge\data'
+path_lab = r'LOGS'
+
+color_list = ["#5E0DAC", '#FF4F00', '#375CB1', '#FF7400', '#FFF400', '#FF0056']
+
+
 
 # Create app layout
 app.layout = html.Div(
@@ -134,8 +148,6 @@ app.layout = html.Div(
                         min_date_allowed=min_date,
                         max_date_allowed=max_date,
                         initial_visible_month=initial_month,
-                        style={'width': '100%'},
-
                     )
                 ],id='range_framework',style={'width': '100%', 'margin-bottom': '20px'}
                 ),
@@ -205,6 +217,41 @@ app.layout = html.Div(
 
 
 ########################################################
+# Callback the update speed
+@app.callback(Output('experiment', 'options'),
+              [Input('interval-log-update', 'n_intervals')])
+def update_experiments(n_intervals):
+    if n_intervals == 0:
+        experiment_update = get_folder_names(all_folder_paths(path_lab))
+
+        return [{'label': i, 'value': i} for i in experiment_update]
+
+@app.callback(Output('year', 'options'),
+              [Input('experiment', 'value')])
+def update_years(exp):
+    years_update = get_folder_names(all_folder_paths(path_lab + '\\' + exp + r'\data'))
+    return [{'label': i, 'value': i} for i in years_update]
+
+
+@app.callback(Output('channels_dropdown', 'options'),
+              [Input('experiment', 'value'),
+              Input('year', 'value')])
+def update_channels(exp, year):
+    
+    try:
+        path = path_lab + '\\' + exp + r'\data' + '\\' + year
+
+        dates = all_folder_paths(path)
+        print(dates)
+        data_path = all_file_paths(dates[0], '.log')
+        channels_update = get_effect_channels(data_path)
+    
+    except FileNotFoundError as error:
+        print(error)
+        print('There is no data in this folder')
+
+    return [{'label': i, 'value': i} for i in channels_update]
+
 
 
 # Callback the update speed
@@ -268,9 +315,10 @@ def get_before_log(start_date, end_date):
             storage_end_date = end_date + timedelta(days=-1)
             run_log_df = get_data_str(start_date, storage_end_date, channels_auto, path_data_auto)
         
-        num = len(run_log_df)                       
+        num = len(run_log_df)  
+        print(run_log_df)                     
         json_data = run_log_df.to_json(orient='split')
-
+       
         return json_data, str(num)
 
     except FileNotFoundError as error:      
@@ -344,39 +392,31 @@ def update_num_display_and_time(num_before, num_today):
             Input('autoscale','n_clicks_timestamp')])
 def update_graph(before, today, selected_dropdown_value, display_mode_value, click):
 
-    try: 
-
-        if (before != None) and (today == None): 
-            before_df = pd.read_json(before, orient='split')
-            df = before_df
-        elif  (before == None) and (today != None): 
-            today_df = pd.read_json(today, orient='split')
-            df = today_df
-        else:
-            before_df = pd.read_json(before, orient='split')
-            today_df = pd.read_json(today, orient='split')
-            df = pd.concat([before_df, today_df], axis=0)
-
-    except FileNotFoundError as error:
-        # empty dataframe
+    if (before != None) and (today != None):
+        before_df = pd.read_json(before, orient='split')
+        today_df = pd.read_json(today, orient='split')
+        df = pd.concat([before_df, today_df], axis=0)
         
-        df = pd.DataFrame()
-        print(error)
-        print("Please verify if the json file is correct.")
-        print("Please verify if the data is placed in the correct directory.")
+    elif (before != None) and (today == None): 
+        before_df = pd.read_json(before, orient='split')
+        df = before_df
+
+    elif (before == None) and (today != None): 
+        today_df = pd.read_json(today, orient='split')
+        df = today_df
+    else:
+        raise FileNotFoundError('No json file')
 
     # create empty trace
     trace = []
     for channel in selected_dropdown_value:
         key_time = 'Time_'+channel
         key = channel
-
+\\\\\\\\\\\\\\\\\\\\\\          ```````     `
         temp_df = pd.concat([df[key_time], df[key]], axis=1)
-
         temp_df[key_time] = pd.to_datetime(temp_df[key_time], format=r'%Y%m%d %H:%M:%S')
 
         trace.append(go.Scatter(x=temp_df[key_time], y=temp_df[key],mode='lines',
-        
         opacity=0.7,name=channel, textposition='bottom center'))
 
     data = trace
@@ -427,3 +467,5 @@ def update_graph(before, today, selected_dropdown_value, display_mode_value, cli
 # Main
 if __name__ == '__main__':
     app.server.run(debug=True, threaded=True)
+
+# In Jupyter, debug = False 

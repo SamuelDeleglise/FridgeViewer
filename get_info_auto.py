@@ -7,6 +7,7 @@ from datetime import timedelta, date, time, datetime
 import os
 
 
+path_data_auto = r'LOGS\DummyFridge\data'
 current_address = os.path.abspath('.')
 
 
@@ -21,7 +22,7 @@ def all_folder_paths(path):
     """  Argument is a path
     Return all paths of folder in one directory 
     """
-    all_folders = glob.glob(path + '/*')
+    all_folders = glob.glob(pacth + '/*')
     return all_folders
 
 def path_leaf(path):
@@ -37,7 +38,7 @@ def get_folder(all_folders_or_files):
     folders = []
     pattern = re.compile(r'\.\w+')
     for item in all_folders_or_files:
-        if  re.search(pattern, path_leaf(item)) ==None:
+        if  re.search(pattern, path_leaf(item)) == None:
             folders.append(re.sub(pattern,'', path_leaf(item)))
         else: pass
     return folders

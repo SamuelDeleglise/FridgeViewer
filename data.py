@@ -6,22 +6,82 @@ import re
 import numpy as np
 from datetime import timedelta, date, time, datetime
 #########################################################
-# Settings
+# Settings for test
 
 path_data = r'LOGS\DummyFridge\data'
-# Date range
 MIN_DATE_ALLOWED = datetime(2018, 8, 5)
 MAX_DATE_ALLOWED = datetime.today()
 INITIAL_MONTH = datetime.today()
 TODAY_DATE  = datetime.today()
 TEST_MODE = False
 
-path_test = r'C:\Users\YIFAN\Documents\GitHub\FridgeViewer\LOGS\DummyFridge\data\2019\19-04-13'
-path_test2 = r'C:\Users\YIFAN\Documents\GitHub\FridgeViewer\LOGS'
 ########################################################
+def path_leaf(path):
+    """ Remove / or \ from a path
+    """
+    head, tail = ntpath.split(path)
+    return tail or ntpath.basename(head)
+
+def all_file_paths(path, filetype='.log'):
+    """ Transfer the path of folder and return all paths of .log files in the same 
+    """
+    all_files = glob.glob(path + '/*'+filetype)
+    return all_files
+
+def all_folder_paths(path):
+    """ Transfer the path of folder and files and return all paths of inner folders  
+    """
+    all_folders = glob.glob(path + '/*')
+    return all_folders
+
+def get_folder_names(folder_paths):
+    """ Transfer a list of paths and return all folder names as a list
+    """
+    folders = []
+    # remove the file type
+    pattern = re.compile(r'\.\w+')
+    for item in folder_paths:
+
+        list_name = path_leaf(item)
+        # exclude the files
+        if  re.search(pattern, list_name) == None:
+            folders.append(list_name)
+        else: pass
+    return folders
+
+def get_files_names(files_paths_list):
+    """ Transfer a list of paths and return all files names as a list
+    """
+    files = []
+    pattern = re.compile(r'\.\w+')
+    for item in files_paths_list:
+
+        list_name = path_leaf(item)
+        if  re.search(pattern, list_name) != None:
+            files.append(re.sub(pattern, '', list_name))
+        else: pass
+    return files
 
 
-
+def get_effect_channels(file_paths_list):
+    """ Transfer a list of paths and return all effective channels as a list
+    """
+    names = []
+    pattern = re.compile(r'(\s|\_)\d+\-\d+\-\d+\.\w+')
+    
+    for filepath in file_paths_list:
+        names.append(re.sub(pattern,'', path_leaf(filepath)))
+    try:
+        names.remove('Erreurs')
+        names.remove('Erreurs')
+    except:
+        pass
+    return names
+###############################################################
+# Fast reading
+# pd.read_csv('data.csv', index_col='date', parse_dates = 'date')
+# pd.read_csv('c:/tmp/test.csv', parse_dates=['date', 'dt2'], index_col=0)
+# pd.read_hdf('c:/tmp/test_fix.h5', 'test')
 
 ###############################################################
 # Time range 
@@ -141,6 +201,3 @@ def get_data(start_date, end_date, channels, path_data):
     return df_full
 
 
-# test mode data
-test_data = get_data(datetime(2019, 4, 13), datetime(2019, 4, 14), ['CH1 T', 'CH2 T'], path_data)
-test_data2 = get_data(datetime(2019, 4, 13), datetime(2019, 4, 14), ['CH1 P'], path_data)
