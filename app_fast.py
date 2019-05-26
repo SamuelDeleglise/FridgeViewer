@@ -511,9 +511,9 @@ def update_graph(before, selected_dropdown_value, display_mode_value, click):
                                 {'count': 6, 'label': '6h', 'step': 'hour', 'stepmode': 'backward'},
                                 {'step': 'all'}])},
                         'rangeslider': {'visible': True}, 'type': 'date'},
-                        'margin':{'l': 40, 'b': 40, 't': 10, 'r': 10},
+                        'margin':{'l':60, 'b': 40, 't': 80, 'r': 10},
                         'yaxis' : {"title":"Value"},
-                        'uirevision': click,
+                        'uirevision': True,
                         'transition': {'duration': 500,
                                        'easing': 'cubic-in-out'}
             }
