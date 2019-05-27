@@ -67,17 +67,17 @@ def get_effect_channels(file_paths_list):
     """ Transfer a list of paths and return all effective channels as a list
     """
     names = []
+    new_names = []
     pattern = re.compile(r'(\s|\_)\d+\-\d+\-\d+\.\w+')
     
     for filepath in file_paths_list:
         names.append(re.sub(pattern,'', path_leaf(filepath)))
     
     # remove the error log files
-
     for name in names:
-        if not re.match('CH', name):
-            names.remove(name)
-    return names
+        if re.match('CH', name):
+            new_names.append(name)
+    return new_names
 ###############################################################
 # Fast reading
 # pd.read_csv('data.csv', index_col='date', parse_dates = 'date')

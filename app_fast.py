@@ -9,6 +9,10 @@ from flask_cors import CORS
 import dash 
 from dash import no_update
 from dash.dependencies import Input, Output, State
+
+
+# need to update the latest version
+#############################################
 import dash_core_components as dcc
 import dash_html_components as html
 from datetime import timedelta, date, time, datetime
@@ -70,6 +74,11 @@ app.layout = html.Div([
         interval=1*1000, # in milliseconds
         n_intervals=0
     ),
+    dcc.Interval(
+        id='interval-info-update',
+        interval=1*1000*60*60*24, # in milliseconds
+        n_intervals=0
+    ),
 
     # Hidden Div Storing JSON-serialized dataframe of run log
     html.Div([
@@ -101,7 +110,7 @@ app.layout = html.Div([
                 'position': 'relative',
                 },
             ),
-    ],className='row' , style={'margin-top': 5, 'margin-bottom': 5,}
+        ],id = 'header', className='row' , style={'margin-top': 5, 'margin-bottom': 5,}
     ),
     
     html.Div(
@@ -190,10 +199,18 @@ app.layout = html.Div([
                         min_date_allowed=min_date,
                         max_date_allowed=max_date,
                         initial_visible_month=initial_month,
-                        style={'width': '100%'}
                     ),
                 ],id='range_framework',style={'width': '100%', 'margin-bottom': '20px'}
                 ),
+                
+                html.Div([
+                    html.Button('Update Date range', 
+                                    id='update_date', 
+                                    n_clicks_timestamp=0,
+                                    style= {'width': '100%'})
+                ], style={'width': '100%', 'margin-bottom': '20px' }
+                ),
+
 
                 html.Div([
                     html.P("Plot Display mode:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
@@ -256,24 +273,23 @@ app.layout = html.Div([
 ########################################################
 # Get the experiment list automatically 
 @app.callback([Output('experiment', 'options'),
+               Output('experiment', 'value'),
               Output('experiments-storage','data')],
-              [Input('interval-log-update', 'n_intervals')],
+              [Input('interval-info-update', 'n_intervals')],
               [State('experiments-storage','data')])
 def update_experiments(n_intervals, data):
+    print('callback 1')
+    a = {}
     try:
-        a = {}
-        if n_intervals == 0:
-            experiment_update = get_folder_names(all_folder_paths(path_lab))
-
-            data = data or {}
-            a['experiments'] = experiment_update
-            return [{'label': i, 'value': i} for i in experiment_update], a
-        else: 
-            return no_update, no_update
-
+        experiment_update = get_folder_names(all_folder_paths(path_lab))
     except FileNotFoundError as error:
         print(error)
         print('Cannot get the experiment list')
+        return no_update, no_update
+    else:
+        data = data or {}
+        a['experiments'] = experiment_update
+        return [{'label': i, 'value': i} for i in experiment_update], experiment_update[0], a
 
 
 # Get year list automatically
@@ -282,7 +298,8 @@ def update_experiments(n_intervals, data):
                Output('years-storage','data')],
               [Input('experiment', 'value')],
               [State('years-storage','data')])
-def update_years(exp,data):
+def update_years(exp, data):
+    print('callback 2')
     try:
         years_update = get_folder_names(all_folder_paths(path_lab + '\\' + exp + r'\data'))
         data = data or {}
@@ -292,6 +309,7 @@ def update_years(exp,data):
     except FileNotFoundError as error:
         print(error)
         print('Cannot get the year list')
+        return no_update, no_update, no_update
 
 # Get effective channels list
 @app.callback([Output('channels_dropdown', 'options'),
@@ -301,6 +319,7 @@ def update_years(exp,data):
               Input('year', 'value')],
               [State('channels-storage','data')])
 def update_channels(exp, year, data):
+    print('callback 3')
     try:
         path = path_lab + '\\' + exp + r'\data' + '\\' + year
         dates = all_folder_paths(path)
@@ -314,31 +333,40 @@ def update_channels(exp, year, data):
     except FileNotFoundError as error:
         print(error)
         print('Cannot get the channel list')
+        return no_update, no_update, no_update
 
 # Get effective date range 
 @app.callback([Output('date_range', 'min_date_allowed'),
                 Output('date_range', 'max_date_allowed'),
-                 Output('date_range', 'initial_visible_month')],
+                 Output('date_range', 'initial_visible_month'),
+                 Output('date_range', 'start_date'),
+                Output('date_range', 'end_date'),],
                [Input('experiment', 'value'),
                Input('year', 'value')])
 def update_date_range(exp, year):
+  
+    print('callback 4')
     try:
         path = path_lab + '\\' + exp + r'\data' + '\\' + year
         dates = all_folder_paths(path)
         min_date = datetime.strptime(path_leaf(dates[0]), r'%y-%m-%d')
         max_date = datetime.strptime(path_leaf(dates[-1]), r'%y-%m-%d')
+
         month = max_date
-        return min_date, max_date, month 
+        start_date = max_date 
+
+        return min_date, max_date, month, start_date,  max_date
 
     except FileNotFoundError as error:
         print(error)
         print('There is no data in this year.')
-
+        return no_update, no_update, no_update, no_update
+   
 # Callback the update speed
 @app.callback(Output('interval-log-update', 'interval'),
               [Input('dropdown-interval-control', 'value')])
 def update_interval_log_update(interval_rate):
-
+    print('callback 5')
     if interval_rate == 'fast':
         return 500
 
@@ -357,6 +385,8 @@ def update_interval_log_update(interval_rate):
                 [Input('date_range', 'start_date'),
                  Input('date_range', 'end_date')])
 def storage_mode(start_date, end_date):
+    
+    print('callback 6')
     try:
         end_date = datetime.strptime(end_date,r'%Y-%m-%d')
         start_date = datetime.strptime(start_date, r'%Y-%m-%d')
@@ -369,7 +399,8 @@ def storage_mode(start_date, end_date):
         print('The update is needless for the data selected.' )
         return 'no'
     else: 
-        no_update
+        no_update    
+
 
 # Dash can't have the same Input and Output
 # Save the data as json file in cache
@@ -389,13 +420,14 @@ def storage_mode(start_date, end_date):
                   ])
 # @cache.memoize(timeout=timeout)  # in seconds
 def get_before_log(start_date, end_date, exp, data_channel, before, num_before, start_date_old, end_date_old): 
-    
+    print('callback 7')
     # the first time, the list of date_list_old is initialized as an empty list
     if start_date_old == None and end_date_old == None:
         date_list_old = []
     else: 
         start_date_old = datetime.strptime(start_date_old['start_date_old'], r'%Y-%m-%d')
         end_date_old = datetime.strptime(end_date_old['end_date_old'],r'%Y-%m-%d')
+        date_list_old = datelist(start_date_old, end_date_old)
     try:
         end_date = datetime.strptime(end_date,r'%Y-%m-%d')
         start_date = datetime.strptime(start_date, r'%Y-%m-%d')
@@ -427,6 +459,7 @@ def get_before_log(start_date, end_date, exp, data_channel, before, num_before, 
         cache_dic = {}
         num_total = 0
         for single_date in date_update:
+            print(single_date)
             try:
                 df = get_1day_data_str(single_date, channel_set, path)
                 single_date_str = single_date.strftime(r'%Y-%m-%d')
@@ -448,8 +481,8 @@ def get_before_log(start_date, end_date, exp, data_channel, before, num_before, 
                 print("Fail to transfer the data to json type.")
             else: 
                 print('Succeed to transfer the data to json type.')
-            num_total = num_total + num_df
-        print(num_total)
+                num_total = num_total + num_df
+
         return cache_dic, {'num_before': num_total}, {'start_date_old':start_date},  {'end_date_old':end_date}
 
 # Update today's json data 
@@ -461,6 +494,8 @@ def get_before_log(start_date, end_date, exp, data_channel, before, num_before, 
                   Input('date_range', 'start_date'),
                   Input('date_range', 'end_date')])
 def get_today_log(n_intervals, exp, data_channel, start_date, end_date):
+   
+    print('callback 8')
     try:
         end_date = datetime.strptime(end_date, r'%Y-%m-%d')
         start_date = datetime.strptime(start_date, r'%Y-%m-%d')
@@ -491,8 +526,7 @@ def get_today_log(n_intervals, exp, data_channel, start_date, end_date):
         return cache_dic, {'num-today': num}
     else:
         return no_update, no_update
-
-
+    
 
 
 # Display the data size
@@ -500,7 +534,7 @@ def get_today_log(n_intervals, exp, data_channel, start_date, end_date):
 @app.callback(Output('div-num-display', 'children'),
               [Input('num-before-storage', 'data'),Input('num-today-storage', 'data')])
 def update_num_display_and_time(num_before, num_today):  
-
+    print('callback 8')
     if num_before == None:
         num_1 = 0
     else: 
