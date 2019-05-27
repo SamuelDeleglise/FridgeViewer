@@ -20,8 +20,13 @@ from data import*
 
 app = dash.Dash(__name__)
 
+#https://cdnjs.cloudflare.com/ajax/libs/normalize/7.0.0/normalize.min.css
 #https://codepen.io/chriddyp/pen/bWLwgP.css
 app.css.append_css({'external_url': 'https://rayonde.github.io/external_css/fridge.css'})  
+
+
+
+
 server = app.server
 CORS(server)
 #######################################################
@@ -57,6 +62,14 @@ def create_cache_div(name, info):
 
 # Create app layout
 app.layout = html.Div([ 
+    
+    # Live mode or not according to end_date
+    # Real time control
+    dcc.Interval(
+        id='interval-log-update',
+        interval=1*1000, # in milliseconds
+        n_intervals=0
+    ),
 
     # Hidden Div Storing JSON-serialized dataframe of run log
     html.Div([
@@ -94,28 +107,33 @@ app.layout = html.Div([
     html.Div(
         [
         html.Div([
-            html.P('Experiment:'),
-            
+            html.Div([
+                html.P('Experiment:',style={}),
+            ]  ,style={}
+            ),
             html.Div([
                 dcc.Dropdown( id ='experiment',
                 options=[{'label': i, 'value': i} for i in experiments_auto],
                 multi=False,
                 value= experiments_auto[0],
-                    ),
-            ]
+                ),
+            ], style={}
             ), 
-        ], id='experiment-framework',className='six columns'
+        ], id='experiment-framework',className='six columns' 
         ),
     
         html.Div([
-            html.P('Year:'), 
+            html.Div([
+                html.P('Year:'),
+            ],style={}
+            ), 
             html.Div([
                 dcc.Dropdown(id='year',
                 options=[{'label': i, 'value': i} for i in years_auto],
                 multi=False,
                 value= years_auto[-1],
                 ),
-            ]
+            ],style={}
             ), 
 
         ], id='years-framework', className='six columns'
@@ -146,89 +164,87 @@ app.layout = html.Div([
     ),
 
     html.Div([
-        
-        # Live mode or not according to end_date
-        # Real time control
-        dcc.Interval(
-            id='interval-log-update',
-            interval=1*1000, # in milliseconds
-            n_intervals=0
-        ),
-
         html.Div([
-            dcc.Graph(id='temperature-graph'
+            html.Div([
+                dcc.Graph(id='temperature-graph')
+            ],style={}
             )
-        ],id='graph_framework', className ='nine columns',style={'float':'left','border': 'thin lightgrey solid','borderRadius': 5}),
+        ],id='graph_framework', className ='eight columns',style={'display': 'inline-block'}),
 
         html.Div([
             html.Div([
-                html.P("Scale:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
-
-                dcc.DatePickerRange(id='date_range',
-                    end_date = initial_end_date,
-                    start_date = initial_start_date,
-                    min_date_allowed=min_date,
-                    max_date_allowed=max_date,
-                    initial_visible_month=initial_month,
-                )
-            ],id='range_framework',style={'width': '100%', 'margin-bottom': '20px'}
-            ),
-
-            html.Div([
-                html.P("Plot Display mode:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
-
-                dcc.RadioItems(
-                    options=[
-                        {'label': ' Overlapping', 'value': 'overlap'},
-                        {'label': ' Separate', 'value': 'separate'},
-                    ],
-                    value='overlap',
-                    id='display_mode'
+                html.Div([
+                    html.Button('Autoscale', 
+                                    id='autoscale', 
+                                    n_clicks_timestamp=0,
+                                    style= {'width': '100%'})
+                ], style={'width': '100%', 'margin-bottom': '20px' }
                 ),
-            ], style={'width': '100%', 'margin-bottom': '20px' }
-            ),
-            
-            html.Div([
-                html.P("Update Speed:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
 
-                html.Div(id='div-interval-control', children=[
-                    dcc.Dropdown(id='dropdown-interval-control',
+                html.Div([
+                    html.P("Scale:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
+
+                    dcc.DatePickerRange(id='date_range',
+                        end_date = initial_end_date,
+                        start_date = initial_start_date,
+                        min_date_allowed=min_date,
+                        max_date_allowed=max_date,
+                        initial_visible_month=initial_month,
+                        style={'width': '100%'}
+                    ),
+                ],id='range_framework',style={'width': '100%', 'margin-bottom': '20px'}
+                ),
+
+                html.Div([
+                    html.P("Plot Display mode:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
+
+                    dcc.RadioItems(
                         options=[
-                            {'label': 'No Updates', 'value': 'no'},
-                            {'label': 'Slow Updates', 'value': 'slow'},
-                            {'label': 'Regular Updates', 'value': 'regular'},
-                            {'label': 'Fast Updates', 'value': 'fast'}
+                            {'label': ' Overlapping', 'value': 'overlap'},
+                            {'label': ' Separate', 'value': 'separate'},
                         ],
-                        value='regular',
-                        style= {'width': '100%'},
-                        clearable=False,
-                        searchable=False
-                    )
-                ]),
-            ], style={'width': '100%', 'margin-bottom': '20px' }
-            ),
-
-            html.Div([
-                html.P("Number of data points:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
+                        value='overlap',
+                        id='display_mode'
+                    ),
+                ], style={'width': '100%', 'margin-bottom': '20px' }
+                ),
                 
-                html.Div(id="div-num-display")
+                html.Div([
+                    html.P("Update Speed:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
 
-            ],style={'width': '100%', 'margin-bottom': '20px' }
-            ),
-            
-            html.Div([
-                html.Button('Autoscale', 
-                                id='autoscale', 
-                                n_clicks_timestamp=0,
-                                style= {'width': '100%'})
-            ], style={'width': '100%', 'margin-bottom': '20px' }
-            ),
-        ],id='select_framework', className ='three columns', style={
-                            'height':'100%', 
-                            'float': 'right', 
+                    html.Div(id='div-interval-control', children=[
+                        dcc.Dropdown(id='dropdown-interval-control',
+                            options=[
+                                {'label': 'No Updates', 'value': 'no'},
+                                {'label': 'Slow Updates', 'value': 'slow'},
+                                {'label': 'Regular Updates', 'value': 'regular'},
+                                {'label': 'Fast Updates', 'value': 'fast'}
+                            ],
+                            value='regular',
+                            style= {'width': '100%'},
+                            clearable=False,
+                            searchable=False
+                        )
+                    ]),
+                ], style={'width': '100%', 'margin-bottom': '20px' }
+                ),
+
+                html.Div([
+                    html.P("Number of data points:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
+                    
+                    html.Div(id="div-num-display")
+
+                ],style={'width': '100%', 'margin-bottom': '20px' }
+                ),
+                
+            ],style={       'height':'100%', 
                             'padding': 15,  
                             'borderRadius': 5, 
-                            'border': 'thin lightgrey solid'}
+                            'border': 'thin lightgrey solid'})
+        ],id='select_framework', className ='four columns', style={
+                            'height':'100%', 
+                            'display': 'inline-block',
+                            'float': 'right',}
         )
     ],className='row', style={'margin-top': 5, 'margin-bottom': 5,}
     ),
@@ -245,6 +261,7 @@ app.layout = html.Div([
               [State('experiments-storage','data')])
 def update_experiments(n_intervals, data):
     try:
+        a = {}
         if n_intervals == 0:
             experiment_update = get_folder_names(all_folder_paths(path_lab))
 
@@ -503,6 +520,7 @@ def update_num_display_and_time(num_before, num_today):
             Input('autoscale','n_clicks_timestamp')],)
 def update_graph(before, selected_dropdown_value, display_mode_value, click):
     layout_set = {'colorway': color_list,
+                       'title':"The sensor channel monitor",
                        'height':600,
                         'xaxis':{"title":"Date",
                             'rangeselector': {'buttons': list([
@@ -510,12 +528,11 @@ def update_graph(before, selected_dropdown_value, display_mode_value, click):
                                 {'count': 1, 'label': '1h', 'step': 'hour', 'stepmode': 'backward'},
                                 {'count': 6, 'label': '6h', 'step': 'hour', 'stepmode': 'backward'},
                                 {'step': 'all'}])},
-                        'rangeslider': {'visible': True}, 'type': 'date'},
+                            'rangeslider': {'visible': True}, 'type': 'date'},
                         'margin':{'l':60, 'b': 40, 't': 80, 'r': 10},
                         'yaxis' : {"title":"Value"},
-                        'uirevision': True,
-                        'transition': {'duration': 500,
-                                       'easing': 'cubic-in-out'}
+                        'uirevision': click,
+                       
             }
 
     df = pd.DataFrame()
@@ -531,6 +548,7 @@ def update_graph(before, selected_dropdown_value, display_mode_value, click):
         if not isinstance(selected_dropdown_value, (list,)):
             selected_dropdown_value = [selected_dropdown_value]
         
+        print(selected_dropdown_value)
         for channel in selected_dropdown_value:
             key_time = 'Time_'+ channel
             key = channel
@@ -540,22 +558,29 @@ def update_graph(before, selected_dropdown_value, display_mode_value, click):
 
             trace.append(go.Scatter(x=temp_df[key_time], y=temp_df[key],mode='lines',
             opacity=0.7,name=channel, textposition='bottom center'))
-        
+
         data = trace
-        # overlap display
-        if display_mode_value == 'overlap':
-            figure = {'data': data, 'layout': layout_set}
-            figure['layout'].update(title="The sensor channel monitor")
-        
-        # separate dislay 
-        elif display_mode_value == 'separate':
-            num =  len(selected_dropdown_value)
-            figure = tools.make_subplots(rows=num, cols=1)
-            for index, (tra, chan) in enumerate(zip(trace, selected_dropdown_value)):       
-                figure.append_trace(tra, index, 1)
-                figure['layout'] = layout_set          
-                figure['layout'].update(title=" The channel of {0}".format(chan))
-        return figure
+        if len(trace) !=0:
+            # overlap display
+            if display_mode_value == 'overlap':
+                print(len(data))
+                figure = {'data': data, 'layout': layout_set}
+            
+            # separate dislay 
+            elif display_mode_value == 'separate':
+                num =  len(selected_dropdown_value)
+                print(num)
+                figure = tools.make_subplots(rows=num, cols=1)
+                for index, (tra, chan) in enumerate(zip(trace, selected_dropdown_value)):   
+                    print(index)    
+                    figure.append_trace(tra, index+1, 1)
+                    figure['layout']['xaxis{}'.format(index+1)].update(title='The channel of {0}'.format(chan)) 
+                
+                figure['layout'].update(height=500*num)         
+                    
+            return figure
+        else:
+            return no_update 
     else:
         return no_update
 
@@ -585,7 +610,16 @@ def update_graph_extend(today, selected_dropdown_value, display_mode_value, clic
 
             trace.append(go.Scatter(x=temp_df[key_time], y=temp_df[key],mode='lines',
             opacity=0.7,name=channel, textposition='bottom center'))
-        return trace
+        
+        if len(trace) !=0:
+            # overlap display
+            if display_mode_value == 'overlap':
+                return trace
+            # separate dislay 
+            elif display_mode_value == 'separate': 
+                return figure
+        else:
+            return no_update 
     else: 
         return no_update
 
