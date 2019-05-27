@@ -71,12 +71,12 @@ def get_effect_channels(file_paths_list):
     
     for filepath in file_paths_list:
         names.append(re.sub(pattern,'', path_leaf(filepath)))
+    
     # remove the error log files
-    try:
-        names.remove('Errors')
-        names.remove('heaters')
-    except:
-        pass
+
+    for name in names:
+        if not re.match('CH', name):
+            names.remove(name)
     return names
 ###############################################################
 # Fast reading
