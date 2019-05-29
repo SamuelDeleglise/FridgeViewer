@@ -15,6 +15,7 @@ from datetime import timedelta, date, time, datetime
 import plotly.graph_objs as go
 from plotly import tools
 import numpy as np
+import os.path as osp
 
 from data import*
 
@@ -271,8 +272,14 @@ def update_date_range(exp, year):
     try:
         path = path_lab + '\\' + exp + r'\data' + '\\' + year
         dates = all_folder_paths(path)
-        min_date = datetime.strptime(dates[0], r'%YY-%m-%d')
-        max_date = datetime.strptime(dates[-1], r'%YY-%m-%d')
+        first_date = osp.split(dates[0])[-1] # only the last folder in the path
+        last_date = osp.split(dates[-1])[-1] # only the last folder in the path
+        # make sure date is formatted with 4-digit year
+        if not first_date.startswith('20'):
+            first_date = '20' + first_date
+            last_date = '20'  + last_date
+        min_date = datetime.strptime('20' + osp.split(dates[0])[-1], r'%Y-%m-%d')
+        max_date = datetime.strptime('20' + osp.split(dates[-1])[-1], r'%Y-%m-%d')
         month = max_date
         return min_date, max_date, month 
 
@@ -322,10 +329,11 @@ def storage_mode(start_date, end_date):
 @app.callback([Output('before-log-storage', 'children'),
                Output('num-before-storage','children')],
                   [ Input('date_range', 'start_date'),
-                  Input('date_range', 'end_date'),
-                  State('before-log-storage', 'children'),
-                  State('num-before-storage','children')])
-def get_before_log(start_date, end_date, before, num_before): 
+                  Input('date_range', 'end_date'),])
+                  #State('before-log-storage', 'children'),
+                  #State('num-before-storage','children')])
+def get_before_log(start_date, end_date):#, before, num_before): 
+    print(channels_auto)
     try:
         end_date = datetime.strptime(end_date,r'%Y-%m-%d')
         start_date = datetime.strptime(start_date, r'%Y-%m-%d')
