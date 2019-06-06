@@ -63,21 +63,16 @@ def get_files_names(files_paths_list):
     return files
 
 
-def get_effect_channels(file_paths_list):
+def get_channels(file_paths_list):
     """ Transfer a list of paths and return all effective channels as a list
     """
     names = []
-    new_names = []
     pattern = re.compile(r'(\s|\_)\d+\-\d+\-\d+\.\w+')
     
     for filepath in file_paths_list:
         names.append(re.sub(pattern,'', path_leaf(filepath)))
     
-    # remove the error log files
-    for name in names:
-        if re.match('CH', name):
-            new_names.append(name)
-    return new_names
+    return names
 ###############################################################
 # Fast reading
 # pd.read_csv('data.csv', index_col='date', parse_dates = 'date')
@@ -125,6 +120,27 @@ def get_file_str(path):
     df = df.drop('Date', 1)
     return df
 
+def get_file_chan(path):
+    """ The original type of file is CHAN, 
+        This function returns a pandas format with frames 'Time', 'Value',
+    """
+    
+    with open(path, 'rb') as fh:
+        buffer = fh.read()
+        data  = np.frombuffer(buffer, dtype=float)
+
+        time = []
+        for ts in data[::2]:
+            time.append(datetime.fromtimestamp(int(ts)))
+    
+        value = []
+        for ts in data[1::2]:
+            value.append(ts)
+        d = {'Time': time, 'Value': value}
+        df = pd.DataFrame(d)
+
+    return df
+
 
 def get_data_str(start_date, end_date, channels, path_data):
     """start_time and end_time require the type 'timedate'
@@ -157,6 +173,7 @@ def get_data_str(start_date, end_date, channels, path_data):
         df_full = df_full.astype(str)
     return df_full
 
+
 # Get the data of single day
 def get_1day_data_str(single_date, channels, path_data):
     """start_time and end_time require the type 'timedate'
@@ -167,12 +184,20 @@ def get_1day_data_str(single_date, channels, path_data):
     # for different channels, their data are saved in a dataframe   
     df_channel = pd.DataFrame()
     for chan in channels:
-        file_name = chan + ' ' + single_date.strftime(r"%y-%m-%d") + r'.log'
+        
+        file_name_log = chan + ' ' + single_date.strftime(r"%y-%m-%d") + r'.log'
+        file_name_chan = chan + ' ' + single_date.strftime(r"%y-%m-%d") + r'.chan'
 
         # get the data from a file
-        df = get_file_str(path + file_name)
+        try: 
+            df = get_file_str(path + file_name_log) 
+        except:
+            try: 
+                df = get_file_chan(path + file_name_chan)
+            except:
+                continue
 
-        # delete the 'Date', 'Time' has the information
+        # rename the key 
         try:
             df = df.rename(columns={'Value': chan})
             df = df.rename(columns={'Time': 'Time_'+chan})
@@ -185,64 +210,17 @@ def get_1day_data_str(single_date, channels, path_data):
                 df_channel = df
             else: df_channel = pd.concat([df_channel, df], axis=1)
     
+    print(df_channel)
     df_channel = df_channel.astype(str)
     return df_channel
 
 
-# By defaut, it gets the data of today
-def get_data_simple(start_date, end_date, channels, path_data):
-    """start_time and end_time should be the type 'timedate'
-    """
-    df_full = pd.DataFrame()
-    for single_date in daterange(start_date, end_date + timedelta(days=1)):
-        
-        path = path_data + '\\' + single_date.strftime("%Y")+ '\\' + single_date.strftime("%y-%m-%d") + '\\'
-        # for different channels, their data are saved in an object
-        df_channel = pd.DataFrame()
-        for i, chan in enumerate(channels):
-            file_name = chan + ' ' + single_date.strftime("%y-%m-%d") + r'.log'
 
-            # get the data from a file
-            df = get_file(path + file_name)
 
-            # delete the 'Date', 'Time' has the information 
-            df = df.rename(columns={'Value': chan})
-            if df_channel.empty:
-                df_channel = df
-            else: df_channel = pd.merge(df_channel, df, how='outer', on='Time')
-        
-        if df_full.empty:
-            df_full = df_channel
-        else: df_full = pd.concat([df_full, df_channel], axis=0)
-    return df_full
 
-def get_data(start_date, end_date, channels, path_data):
-    """start_time and end_time require the type 'timedate'
-       channels requires the type 'list'
-    """
-    df_full = pd.DataFrame()
-    for single_date in daterange(start_date, end_date + timedelta(days=1)):
-        
-        path = path_data + '\\' + single_date.strftime("%Y")+ '\\' + single_date.strftime(r"%y-%m-%d") + '\\'
-        # for different channels, their data are saved in an object
-        df_channel = pd.DataFrame()
-        
-        for chan in channels:
-            file_name = chan + ' ' + single_date.strftime(r"%y-%m-%d") + r'.log'
+# # Test
+# path =r'C:\Users\YIFAN\Documents\GitHub\FridgeViewer\LOGS\Test\data\2019\19-06-04\He3 AB 19-06-04.chan'
 
-            # get the data from a file
-            df = get_file(path + file_name)
-
-            # delete the 'Date', 'Time' has the information 
-            df = df.rename(columns={'Value': chan})
-            df = df.rename(columns={'Time': 'Time_'+chan})
-            if df_channel.empty:
-                df_channel = df
-            else: df_channel = pd.concat([df_channel, df], axis=1)
-        
-        if df_full.empty:
-            df_full = df_channel
-        else: df_full = pd.concat([df_full, df_channel], axis=0)
-    return df_full
-
+# a = get_file_chan(path) 
+# print(a)
 

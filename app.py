@@ -318,12 +318,16 @@ def update_years(exp, data):
               Input('year', 'value')],
               [State('channels-storage','data')])
 def update_channels(exp, year, data):
-    print('callback 3')
+    data_path = []
+    data_path_chan = []
     try:
         path = path_lab + '\\' + exp + r'\data' + '\\' + year
         dates = all_folder_paths(path)
         data_path = all_file_paths(dates[0], '.log')
-        channels_update = get_effect_channels(data_path)
+        data_path_chan = all_file_paths(dates[0], '.chan')
+
+        data_path = data_path + data_path_chan
+        channels_update = get_channels(data_path)
         
         data = data or {}
         data['channels'] = channels_update
@@ -333,6 +337,51 @@ def update_channels(exp, year, data):
         print(error)
         print('Cannot get the channel list')
         return no_update, no_update, no_update
+
+
+# @app.callback([Output('channels_dropdown', 'options'),
+#                Output('channels_dropdown', 'value'),
+#               Output('channels-storage','data')],
+#               [Input('experiment', 'value'),
+#               Input('year', 'value'),
+#               Input('date_range', 'start_date'),
+#               Input('date_range', 'end_date')],
+#               [State('channels-storage','data')])
+# def update_channels(exp, year, start_date, end_date, data):
+    
+#     path = path_lab + '\\' + exp + r'\data' + '\\' + year
+#     channels_update = set()
+    
+#     # get the all possible channels in the interval
+#     try:
+#         end_date = datetime.strptime(end_date,r'%Y-%m-%d')
+#         start_date = datetime.strptime(start_date, r'%Y-%m-%d')
+#     except TypeError as error:      
+#         print(error)
+#         print("Start day and end day have wrong filetype.")
+#     date_list = datelist(start_date, end_date) # timedate type
+    
+#     print(date_list)
+#     for date in date_list: 
+#         single_date_str = date.strftime(r'%Y-%m-%d')
+#         try:
+#             temp1 = set(all_file_paths(path + '\\'+ single_date_str, '.log'))
+#         except:
+#             temp1 =set()
+#         try:
+#             temp2 = set(all_file_paths(path + '\\'+ single_date_str, '.chan'))
+#         except:
+#             temp2 =set()
+        
+#         temp1.update(temp2)
+#         print(temp1)
+#         channels_update = channels_update.update(set(get_channels(temp1)))
+#         print(channels_update )
+        
+#     channels_update = list(channels_update)
+#     data = data or {}
+#     data['channels'] = channels_update
+#     return [{'label': i, 'value': i} for i in channels_update], channels_update[0], data
 
 # Get effective date range 
 @app.callback([Output('date_range', 'min_date_allowed'),
@@ -402,7 +451,6 @@ def storage_mode(start_date, end_date):
 
 # Dash can't have the same Input and Output
 # Save the data as json file in cache
-
 @app.callback([Output('before-log-storage', 'children'),
                Output('num-before-storage','data'),
                Output('start-date-storage', 'children'),
@@ -418,7 +466,7 @@ def storage_mode(start_date, end_date):
                   ])
 # @cache.memoize(timeout=timeout)  # in seconds
 def get_before_log(start_date, end_date, exp, data_channel, before, num_before, start_date_old, end_date_old): 
-    print('callback 7')
+
     # the first time, the list of date_list_old is initialized as an empty list
     if start_date_old == None and end_date_old == None:
         date_list_old = []
@@ -442,24 +490,21 @@ def get_before_log(start_date, end_date, exp, data_channel, before, num_before, 
     if datetime.today().date() in date_update:
         date_update.remove(datetime.today().date())
         
-    try:
-        # get the path from the selection of experiment
-        path = path_lab +'\\' + exp +'\\data'
-        # get the channel set from the channel storage
-        
-        channel_set = data_channel['channels']  
-        print('4')
-    except Exception as error:      
-        print(error)
-        print("Please verify if the data is placed in the correct directory.")
-        return no_update, no_update, no_update, no_update
-    else:
-        print('5')
-        cache_dic = {}
-        num_total = 0
+    cache_dic = {}
+    num_total = 0
+    
+    # get the path from the selection of experiment
+    path = path_lab +'\\' + exp +'\\data'
+    # get the channel set from the channel storage
+     
+    if  data_channel is None:
+        raise Exception("The channel set is empty.")
+        return no_update, no_update, no_update   
+    else: 
+        channel_set = data_channel['channels'] 
         for single_date in date_update:
-            print(single_date)
-            
+
+            # extract one day's data 
             try:
                 df = get_1day_data_str(single_date, channel_set, path)
                 single_date_str = single_date.strftime(r'%Y-%m-%d')
@@ -476,14 +521,14 @@ def get_before_log(start_date, end_date, exp, data_channel, before, num_before, 
                 
                 # create individual store component according to the date
                 cache_dic[single_date_str] = json_data
-                print('7')
+
             except Exception as error: 
                 print(error)
                 print("Fail to transfer the data to json type.")
             else: 
                 print('Succeed to transfer the data to json type.')
                 num_total = num_total + num_df
-        print(num_total)
+
         return cache_dic, {'num_before': num_total}, {'start_date_old':start_date},  {'end_date_old':end_date}
 
 # Update today's json data 
@@ -496,7 +541,6 @@ def get_before_log(start_date, end_date, exp, data_channel, before, num_before, 
                   Input('date_range', 'end_date')])
 def get_today_log(n_intervals, exp, data_channel, start_date, end_date):
    
-    print('callback 8')
     try:
         end_date = datetime.strptime(end_date, r'%Y-%m-%d')
         start_date = datetime.strptime(start_date, r'%Y-%m-%d')
@@ -513,18 +557,21 @@ def get_today_log(n_intervals, exp, data_channel, start_date, end_date):
         path = path_lab +'\\' + exp +'\\data'
         
         # get the channel set from the channel storage
-        print(data_channel)
-        channel_set = data_channel['channels']           
-        try:
-            df = get_1day_data_str(datetime.today(), channel_set, path)
-        except FileNotFoundError as error:      
-            print(error)
-            print("There is no data is placed in the today's directory.")
-        
-        num =len(df) 
-        json_data = df.to_json(orient='split')
-        cache_dic[today_str].append(json_data)
-        return cache_dic, {'num-today': num}
+        if data_channel is None:
+            raise Exception("The channel set is empty.")
+            return no_update, no_update
+        else: 
+            channel_set = data_channel['channels']           
+            try:
+                df = get_1day_data_str(datetime.today(), channel_set, path)
+            except FileNotFoundError as error:      
+                print(error)
+                print("There is no data is placed in the today's directory.")
+            
+            num =len(df) 
+            json_data = df.to_json(orient='split')
+            cache_dic[today_str].append(json_data)
+            return cache_dic, {'num-today': num}
     else:
         return no_update, no_update
     
@@ -535,7 +582,7 @@ def get_today_log(n_intervals, exp, data_channel, start_date, end_date):
 @app.callback(Output('div-num-display', 'children'),
               [Input('num-before-storage', 'data'),Input('num-today-storage', 'data')])
 def update_num_display_and_time(num_before, num_today):  
-    print('callback 8')
+
     if num_before == None:
         num_1 = 0
     else: 
@@ -548,6 +595,8 @@ def update_num_display_and_time(num_before, num_today):
     total_num = num_1 + num_2
     return html.H2('{0}'.format(total_num), style={ 'margin-top': '3px'})
 
+
+# Callback the graph
 @app.callback(Output('temperature-graph', 'figure'),
             [Input('before-log-storage', 'children'),
             Input('channels_dropdown', 'value'),
@@ -571,13 +620,12 @@ def update_graph(before, selected_dropdown_value, display_mode_value, click):
             }
 
     df = pd.DataFrame()
-    if (before != None):        
+    if before is not None:        
         for key, value in before.items():
             before_df = pd.read_json(value, orient='split')
             df = pd.concat([df, before_df], axis=0)
         
-            # create empty trace
-        
+        # create empty trace     
         trace = []
         # to keep same format for single channel or mutiple channels
         if not isinstance(selected_dropdown_value, (list,)):
@@ -590,7 +638,9 @@ def update_graph(before, selected_dropdown_value, display_mode_value, click):
 
             temp_df = pd.concat([df[key_time], df[key]], axis=1)
             temp_df[key_time] = pd.to_datetime(temp_df[key_time], format=r'%Y%m%d %H:%M:%S')
-
+            
+            # eliminate the NaN elements
+            temp_df.dropna()
             trace.append(go.Scatter(x=temp_df[key_time], y=temp_df[key],mode='lines',
             opacity=0.7,name=channel, textposition='bottom center'))
 
@@ -662,7 +712,7 @@ def update_graph_extend(today, selected_dropdown_value, display_mode_value, clic
 
 # Main
 if __name__ == '__main__':
-    app.server.run(debug=True, threaded=True)
+    app.server.run(debug=False, threaded=True)
 
 # In Jupyter, debug = False 
 
