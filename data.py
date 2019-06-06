@@ -23,7 +23,7 @@ def path_leaf(path):
     return tail or ntpath.basename(head)
 
 def all_file_paths(path, filetype='.log'):
-    """ Transfer the path of folder and return all paths of .log files in the same 
+    """ Transfer the path of folder and return all paths of .log files in the same folder
     """
     all_files = glob.glob(path + '/*'+filetype)
     return all_files
@@ -190,13 +190,16 @@ def get_1day_data_str(single_date, channels, path_data):
 
         # get the data from a file
         try: 
-            df = get_file_str(path + file_name_log) 
+            df = get_file_str(path + file_name_log)
+            print('Succeed to store the channel', chan, '(log)')
         except:
             try: 
                 df = get_file_chan(path + file_name_chan)
+                print('Succeed to store he channel', chan, '(chan)')
             except:
+                print('This channel has wrong data format: ', chan)
                 continue
-
+                
         # rename the key 
         try:
             df = df.rename(columns={'Value': chan})
@@ -210,7 +213,6 @@ def get_1day_data_str(single_date, channels, path_data):
                 df_channel = df
             else: df_channel = pd.concat([df_channel, df], axis=1)
     
-    print(df_channel)
     df_channel = df_channel.astype(str)
     return df_channel
 

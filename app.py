@@ -277,8 +277,8 @@ app.layout = html.Div([
               [Input('interval-log-update', 'n_intervals')],
               [State('experiments-storage','data')])
 def update_experiments(n_intervals, data):
+
     if n_intervals==0:
-        print('callback 1')
         a = {}
         try:
             experiment_update = get_folder_names(all_folder_paths(path_lab))
@@ -298,7 +298,7 @@ def update_experiments(n_intervals, data):
               [Input('experiment', 'value')],
               [State('years-storage','data')])
 def update_years(exp, data):
-    print('callback 2')
+    
     try:
         years_update = get_folder_names(all_folder_paths(path_lab + '\\' + exp + r'\data'))
         data = data or {}
@@ -311,77 +311,82 @@ def update_years(exp, data):
         return no_update, no_update, no_update
 
 # Get effective channels list
-@app.callback([Output('channels_dropdown', 'options'),
-               Output('channels_dropdown', 'value'),
-              Output('channels-storage','data')],
-              [Input('experiment', 'value'),
-              Input('year', 'value')],
-              [State('channels-storage','data')])
-def update_channels(exp, year, data):
-    data_path = []
-    data_path_chan = []
-    try:
-        path = path_lab + '\\' + exp + r'\data' + '\\' + year
-        dates = all_folder_paths(path)
-        data_path = all_file_paths(dates[0], '.log')
-        data_path_chan = all_file_paths(dates[0], '.chan')
-
-        data_path = data_path + data_path_chan
-        channels_update = get_channels(data_path)
-        
-        data = data or {}
-        data['channels'] = channels_update
-        return [{'label': i, 'value': i} for i in channels_update], channels_update[0], data
-
-    except FileNotFoundError as error:
-        print(error)
-        print('Cannot get the channel list')
-        return no_update, no_update, no_update
-
-
 # @app.callback([Output('channels_dropdown', 'options'),
 #                Output('channels_dropdown', 'value'),
 #               Output('channels-storage','data')],
 #               [Input('experiment', 'value'),
-#               Input('year', 'value'),
-#               Input('date_range', 'start_date'),
-#               Input('date_range', 'end_date')],
+#               Input('year', 'value')],
 #               [State('channels-storage','data')])
-# def update_channels(exp, year, start_date, end_date, data):
-    
-#     path = path_lab + '\\' + exp + r'\data' + '\\' + year
-#     channels_update = set()
-    
-#     # get the all possible channels in the interval
+# def update_channels(exp, year, data):
+#     data_path = []
+#     data_path_chan = []
 #     try:
-#         end_date = datetime.strptime(end_date,r'%Y-%m-%d')
-#         start_date = datetime.strptime(start_date, r'%Y-%m-%d')
-#     except TypeError as error:      
+#         path = path_lab + '\\' + exp + r'\data' + '\\' + year
+#         dates = all_folder_paths(path)
+#         data_path = all_file_paths(dates[0], '.log')
+#         data_path_chan = all_file_paths(dates[0], '.chan')
+
+#         data_path = data_path + data_path_chan
+#         channels_update = get_channels(data_path)
+        
+#         data = data or {}
+#         data['channels'] = channels_update
+#         return [{'label': i, 'value': i} for i in channels_update], channels_update[0], data
+
+#     except FileNotFoundError as error:
 #         print(error)
-#         print("Start day and end day have wrong filetype.")
-#     date_list = datelist(start_date, end_date) # timedate type
+#         print('Cannot get the channel list')
+#         return no_update, no_update, no_update
+
+
+@app.callback([Output('channels_dropdown', 'options'),
+               Output('channels_dropdown', 'value'),
+              Output('channels-storage','data')],
+              [Input('experiment', 'value'),
+              Input('year', 'value'),
+              Input('date_range', 'start_date'),
+              Input('date_range', 'end_date')],
+              [State('channels-storage','data')])
+def update_channels(exp, year, start_date, end_date, data):
     
-#     print(date_list)
-#     for date in date_list: 
-#         single_date_str = date.strftime(r'%Y-%m-%d')
-#         try:
-#             temp1 = set(all_file_paths(path + '\\'+ single_date_str, '.log'))
-#         except:
-#             temp1 =set()
-#         try:
-#             temp2 = set(all_file_paths(path + '\\'+ single_date_str, '.chan'))
-#         except:
-#             temp2 =set()
+    path = path_lab + '\\' + exp + r'\data' + '\\' + year
+    channels_update = set()
+
+    # get the all possible channels in the interval
+    try:
+        end_date = datetime.strptime(end_date,r'%Y-%m-%d')
+        start_date = datetime.strptime(start_date, r'%Y-%m-%d')
+    except TypeError as error:      
+        print(error)
+        print("Start day and end day have wrong filetype.")
+    date_list = datelist(start_date, end_date) # timedate type
+    
+    for date in date_list: 
+        single_date_str = date.strftime(r'%y-%m-%d')
         
-#         temp1.update(temp2)
-#         print(temp1)
-#         channels_update = channels_update.update(set(get_channels(temp1)))
-#         print(channels_update )
+        try:
+            path_log = all_file_paths(path + '\\'+ single_date_str, '.log')
+            log = get_channels(path_log)
+            channels_update.update(set(log))
+        except:
+            print('No log files')
+        try:
+            path_chan = all_file_paths(path + '\\'+ single_date_str, '.chan')
+            chan = get_channels(path_chan)
+            channels_update.update(set(chan))
+        except:
+            print('No chan files')
         
-#     channels_update = list(channels_update)
-#     data = data or {}
-#     data['channels'] = channels_update
-#     return [{'label': i, 'value': i} for i in channels_update], channels_update[0], data
+    channels_update = list(channels_update)
+    data = data or {}
+    data['channels'] = channels_update
+    return [{'label': i, 'value': i} for i in channels_update], channels_update[0], data
+
+
+
+
+
+
 
 # Get effective date range 
 @app.callback([Output('date_range', 'min_date_allowed'),
@@ -392,7 +397,7 @@ def update_channels(exp, year, data):
                [Input('experiment', 'value'),
                Input('year', 'value')])
 def update_date_range(exp, year):
-    print('callback 4')
+
     try:
         path = path_lab + '\\' + exp + r'\data' + '\\' + year
         dates = all_folder_paths(path)
@@ -413,7 +418,7 @@ def update_date_range(exp, year):
 @app.callback(Output('interval-log-update', 'interval'),
               [Input('dropdown-interval-control', 'value')])
 def update_interval_log_update(interval_rate):
-    print('callback 5')
+
     if interval_rate == 'fast':
         return 500
 
@@ -433,7 +438,6 @@ def update_interval_log_update(interval_rate):
                  Input('date_range', 'end_date')])
 def storage_mode(start_date, end_date):
     
-    print('callback 6')
     try:
         end_date = datetime.strptime(end_date,r'%Y-%m-%d')
         start_date = datetime.strptime(start_date, r'%Y-%m-%d')
@@ -498,7 +502,7 @@ def get_before_log(start_date, end_date, exp, data_channel, before, num_before, 
     # get the channel set from the channel storage
      
     if  data_channel is None:
-        raise Exception("The channel set is empty.")
+        print("The channel set is empty.")
         return no_update, no_update, no_update   
     else: 
         channel_set = data_channel['channels'] 
@@ -612,9 +616,10 @@ def update_graph(before, selected_dropdown_value, display_mode_value, click):
                                 {'count': 1, 'label': '1h', 'step': 'hour', 'stepmode': 'backward'},
                                 {'count': 6, 'label': '6h', 'step': 'hour', 'stepmode': 'backward'},
                                 {'step': 'all'}])},
-                            'rangeslider': {'visible': True}, 'type': 'date'},
+                            'rangeslider': {'visible': True,'yaxis' :{"rangemode": "auto"} }, 'type': 'date'},
                         'margin':{'l':60, 'b': 40, 't': 80, 'r': 10},
-                        'yaxis' : {"title":"Value"},
+                        'yaxis' : {"title":"Value",
+                                },
                         'uirevision': click,
                        
             }
@@ -623,7 +628,7 @@ def update_graph(before, selected_dropdown_value, display_mode_value, click):
     if before is not None:        
         for key, value in before.items():
             before_df = pd.read_json(value, orient='split')
-            df = pd.concat([df, before_df], axis=0)
+            df = pd.concat([df, before_df], axis=0, sort=True)
         
         # create empty trace     
         trace = []
@@ -631,11 +636,9 @@ def update_graph(before, selected_dropdown_value, display_mode_value, click):
         if not isinstance(selected_dropdown_value, (list,)):
             selected_dropdown_value = [selected_dropdown_value]
         
-        print(selected_dropdown_value)
         for channel in selected_dropdown_value:
             key_time = 'Time_'+ channel
             key = channel
-
             temp_df = pd.concat([df[key_time], df[key]], axis=1)
             temp_df[key_time] = pd.to_datetime(temp_df[key_time], format=r'%Y%m%d %H:%M:%S')
             
@@ -644,20 +647,18 @@ def update_graph(before, selected_dropdown_value, display_mode_value, click):
             trace.append(go.Scatter(x=temp_df[key_time], y=temp_df[key],mode='lines',
             opacity=0.7,name=channel, textposition='bottom center'))
 
+
         data = trace
         if len(trace) !=0:
             # overlap display
             if display_mode_value == 'overlap':
-                print(len(data))
                 figure = {'data': data, 'layout': layout_set}
             
             # separate dislay 
             elif display_mode_value == 'separate':
                 num =  len(selected_dropdown_value)
-                print(num)
                 figure = tools.make_subplots(rows=num, cols=1)
-                for index, (tra, chan) in enumerate(zip(trace, selected_dropdown_value)):   
-                    print(index)    
+                for index, (tra, chan) in enumerate(zip(trace, selected_dropdown_value)):     
                     figure.append_trace(tra, index+1, 1)
                     figure['layout']['xaxis{}'.format(index+1)].update(title='The channel of {0}'.format(chan)) 
                 
