@@ -203,13 +203,7 @@ app.layout = html.Div([
                 ],id='range_framework',style={'width': '100%', 'margin-bottom': '20px'}
                 ),
                 
-                html.Div([
-                    html.Button('Update Data', 
-                                    id='update_date', 
-                                    n_clicks_timestamp=0,
-                                    style= {'width': '100%'})
-                ], style={'width': '100%', 'margin-bottom': '20px' }
-                ),
+
 
                 html.Div([
                     html.P("Plot Display mode:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
@@ -458,7 +452,7 @@ def storage_mode(start_date, end_date):
 @app.callback([Output('before-log-storage', 'children'),
                Output('num-before-storage','data'),
                Output('start-date-storage', 'children'),
-               Output('end-date-storage','children')],
+               Output('end-date-storage','children'),],
                   [Input('date_range', 'start_date'),
                   Input('date_range', 'end_date'),
                   Input('experiment', 'value'),
