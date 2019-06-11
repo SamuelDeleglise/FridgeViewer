@@ -2,7 +2,6 @@
 # Import required libraries
 import os
 
-
 import pandas as pd
 from flask import Flask
 from flask_cors import CORS
@@ -27,8 +26,6 @@ app = dash.Dash(__name__)
 #https://cdnjs.cloudflare.com/ajax/libs/normalize/7.0.0/normalize.min.css
 #https://codepen.io/chriddyp/pen/bWLwgP.css
 app.css.append_css({'external_url': 'https://rayonde.github.io/external_css/fridge.css'})  
-
-
 
 
 server = app.server
@@ -92,7 +89,7 @@ app.layout = html.Div([
         
         dcc.Store(id='experiments-storage',storage_type='session'),
         dcc.Store(id='years-storage',storage_type='session'),
-        dcc.Store(id='channels-storage',storage_type='session')
+        dcc.Store(id='channels-storage',storage_type='session'),
     ], id = 'cache'
     ),
     
@@ -182,6 +179,15 @@ app.layout = html.Div([
 
         html.Div([
             html.Div([
+
+                html.Div([
+                    html.P("Live Data:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
+                    
+                    html.Div(id="div-data-display")
+
+                ],style={'width': '100%', 'margin-bottom': '20px' }
+                ),
+
                 html.Div([
                     html.Button('Autoscale', 
                                     id='autoscale', 
@@ -279,7 +285,7 @@ def update_experiments(n_intervals, data):
         except FileNotFoundError as error:
             print(error)
             print('Cannot get the experiment list')
-            return no_update, no_update
+            return no_update, no_update, no_update
         else:
             data = data or {}
             a['experiments'] = experiment_update
@@ -334,7 +340,6 @@ def update_years(exp, data):
 
 
 @app.callback([Output('channels_dropdown', 'options'),
-               Output('channels_dropdown', 'value'),
               Output('channels-storage','data')],
               [Input('experiment', 'value'),
               Input('year', 'value'),
@@ -354,31 +359,43 @@ def update_channels(exp, year, start_date, end_date, data):
         print(error)
         print("Start day and end day have wrong filetype.")
     date_list = datelist(start_date, end_date) # timedate type
-    
-    for date in date_list: 
-        single_date_str = date.strftime(r'%y-%m-%d')
+
+    date = date_list[-1]
+    single_date_str = date.strftime(r'%y-%m-%d')
+    try:
+        path_log = all_file_paths(path + '\\'+ single_date_str, '.log')
+        log = get_channels(path_log)
+        channels_update.update(set(log))
+    except:
+        print('No log files')
+    try:
+        path_chan = all_file_paths(path + '\\'+ single_date_str, '.chan')
+        chan = get_channels(path_chan)
+        channels_update.update(set(chan))
+    except:
+        print('No chan files')
+
+
+    # for date in date_list: 
+    #     single_date_str = date.strftime(r'%y-%m-%d')
         
-        try:
-            path_log = all_file_paths(path + '\\'+ single_date_str, '.log')
-            log = get_channels(path_log)
-            channels_update.update(set(log))
-        except:
-            print('No log files')
-        try:
-            path_chan = all_file_paths(path + '\\'+ single_date_str, '.chan')
-            chan = get_channels(path_chan)
-            channels_update.update(set(chan))
-        except:
-            print('No chan files')
+    #     try:
+    #         path_log = all_file_paths(path + '\\'+ single_date_str, '.log')
+    #         log = get_channels(path_log)
+    #         channels_update.update(set(log))
+    #     except:
+    #         print('No log files')
+    #     try:
+    #         path_chan = all_file_paths(path + '\\'+ single_date_str, '.chan')
+    #         chan = get_channels(path_chan)
+    #         channels_update.update(set(chan))
+    #     except:
+    #         print('No chan files')
         
     channels_update = list(channels_update)
     data = data or {}
     data['channels'] = channels_update
-    return [{'label': i, 'value': i} for i in channels_update], channels_update[0], data
-
-
-
-
+    return [{'label': i, 'value': i} for i in channels_update], data
 
 
 
@@ -494,7 +511,7 @@ def get_before_log(start_date, end_date, exp, data_channel, before, num_before, 
     # get the path from the selection of experiment
     path = path_lab +'\\' + exp +'\\data'
     # get the channel set from the channel storage
-     
+    
     if  data_channel is None:
         print("The channel set is empty.")
         return no_update, no_update, no_update   
@@ -529,49 +546,53 @@ def get_before_log(start_date, end_date, exp, data_channel, before, num_before, 
 
         return cache_dic, {'num_before': num_total}, {'start_date_old':start_date},  {'end_date_old':end_date}
 
-# Update today's json data 
-@app.callback([Output('today-log-storage', 'children'),
-               Output('num-today-storage','data')],
-                  [Input('interval-log-update', 'n_intervals'),
-                   Input('experiment', 'value'),
-                  Input('channels-storage', 'data'),
-                  Input('date_range', 'start_date'),
-                  Input('date_range', 'end_date')])
-def get_today_log(n_intervals, exp, data_channel, start_date, end_date):
+# # Update today's json data 
+# @app.callback([Output('today-log-storage', 'children'),
+#                Output('num-today-storage','data')],
+#                   [Input('interval-log-update', 'n_intervals'),
+#                    Input('experiment', 'value'),
+#                   Input('channels-storage', 'data'),
+#                   Input('date_range', 'start_date'),
+#                   Input('date_range', 'end_date')])
+# def get_today_log(n_intervals, exp, data_channel, start_date, end_date):
    
-    try:
-        end_date = datetime.strptime(end_date, r'%Y-%m-%d')
-        start_date = datetime.strptime(start_date, r'%Y-%m-%d')
-    except TypeError as error:      
-        print(error)
-        print("start_date and end_date have wrong filetype.")
+#     try:
+#         end_date = datetime.strptime(end_date, r'%Y-%m-%d')
+#         start_date = datetime.strptime(start_date, r'%Y-%m-%d')
+#     except TypeError as error:      
+#         print(error)
+#         print("start_date and end_date have wrong filetype.")
 
-    # Select live mode
-    if end_date.date() == datetime.today().date(): 
-        today_str = datetime.today().strftime(r'%Y-%m-%d')
-        num = 0 
-        cache_dic = {}
-        # get the path from the selection of experiment
-        path = path_lab +'\\' + exp +'\\data'
+#     # Select live mode
+#     if end_date.date() == datetime.today().date(): 
+#         today_str = datetime.today().strftime(r'%Y-%m-%d')
+#         num = 0 
+#         cache_dic = {}
+#         # get the path from the selection of experiment
+#         path = path_lab +'\\' + exp +'\\data'
         
-        # get the channel set from the channel storage
-        if data_channel is None:
-            raise Exception("The channel set is empty.")
-            return no_update, no_update
-        else: 
-            channel_set = data_channel['channels']           
-            try:
-                df = get_1day_data_str(datetime.today(), channel_set, path)
-            except FileNotFoundError as error:      
-                print(error)
-                print("There is no data is placed in the today's directory.")
+#         # get the channel set from the channel storage
+#         if data_channel is None:
+#             raise Exception("The channel set is empty.")
+#             return no_update, no_update
+#         else: 
+#             channel_set = data_channel['channels']           
+#             try:
+#                 df = get_1day_data_str(datetime.today(), channel_set, path)
+#             except FileNotFoundError as error:      
+#                 print(error)
+#                 print("There is no data is placed in the today's directory.")
             
-            num =len(df) 
-            json_data = df.to_json(orient='split')
-            cache_dic[today_str].append(json_data)
-            return cache_dic, {'num-today': num}
-    else:
-        return no_update, no_update
+#             num =len(df) 
+#             json_data = df.to_json(orient='split')
+
+#             try:
+#                 cache_dic[today_str] = json_data
+#             except:
+#                 print('error --------------------------------')
+#             return cache_dic, {'num-today': num}
+#     else:
+#         return no_update, no_update
     
 
 
@@ -592,6 +613,7 @@ def update_num_display_and_time(num_before, num_today):
 
     total_num = num_1 + num_2
     return html.H2('{0}'.format(total_num), style={ 'margin-top': '3px'})
+
 
 
 # Callback the graph
@@ -624,22 +646,27 @@ def update_graph(before, selected_dropdown_value, display_mode_value, click):
             before_df = pd.read_json(value, orient='split')
             df = pd.concat([df, before_df], axis=0, sort=True)
         
+        print(df)
         # create empty trace     
         trace = []
         # to keep same format for single channel or mutiple channels
         if not isinstance(selected_dropdown_value, (list,)):
             selected_dropdown_value = [selected_dropdown_value]
         
+
         for channel in selected_dropdown_value:
             key_time = 'Time_'+ channel
             key = channel
-            temp_df = pd.concat([df[key_time], df[key]], axis=1)
-            temp_df[key_time] = pd.to_datetime(temp_df[key_time], format=r'%Y%m%d %H:%M:%S')
-            
-            # eliminate the NaN elements
-            temp_df.dropna()
-            trace.append(go.Scatter(x=temp_df[key_time], y=temp_df[key],mode='lines',
-            opacity=0.7,name=channel, textposition='bottom center'))
+            if key in df.keys() and key_time in df.keys():
+                temp_df = pd.concat([df[key_time], df[key]], axis=1)
+                temp_df[key_time] = pd.to_datetime(temp_df[key_time], format=r'%Y%m%d %H:%M:%S')
+                
+                # eliminate the NaN elements
+                temp_df.dropna()
+                trace.append(go.Scatter(x=temp_df[key_time], y=temp_df[key],mode='lines',
+                opacity=0.7,name=channel, textposition='bottom center'))
+            else: 
+                print('There is no trace required')
 
 
         data = trace
@@ -665,13 +692,15 @@ def update_graph(before, selected_dropdown_value, display_mode_value, click):
         return no_update
 
 
-@app.callback(Output('temperature-graph', 'extendData'),
+@app.callback([Output('temperature-graph', 'extendData'),
+               Output('div-data-display', 'children')],
             [Input('today-log-storage', 'children'),
             Input('channels_dropdown', 'value'),
             Input('display_mode','value'),
             Input('autoscale','n_clicks_timestamp')],
             [State('temperature-graph', 'figure'),])
 def update_graph_extend(today, selected_dropdown_value, display_mode_value, click, figure):
+    
     # live mode
     if (today != None):
         df_today = pd.DataFrame()
@@ -681,6 +710,7 @@ def update_graph_extend(today, selected_dropdown_value, display_mode_value, clic
             df_today = pd.concat([df_today, today], axis=0)
         
         trace = []
+        dis = []
         for channel in selected_dropdown_value:
             key_time = 'Time_'+channel
             key = channel
@@ -690,18 +720,22 @@ def update_graph_extend(today, selected_dropdown_value, display_mode_value, clic
 
             trace.append(go.Scatter(x=temp_df[key_time], y=temp_df[key],mode='lines',
             opacity=0.7,name=channel, textposition='bottom center'))
+
+            dis.append(html.H3('{0} : {1}'.format(channel, temp_df[key].iloc[-1]), style={ 'margin-top': '3px'}))
+        
+            display = html.Div(dis)
         
         if len(trace) !=0:
             # overlap display
             if display_mode_value == 'overlap':
-                return trace
+                return trace, display
             # separate dislay 
             elif display_mode_value == 'separate': 
-                return figure
+                return trace, display
         else:
-            return no_update 
+            return no_update, no_update
     else: 
-        return no_update
+        return no_update, no_update
 
 
 
