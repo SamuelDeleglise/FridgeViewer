@@ -44,7 +44,6 @@ CORS(server)
 #######################################################
 
 
-channels_auto = ['CH1 T', 'CH2 T']
 years_auto = ['2019']
 experiments_auto = ['DummyFridge']
 min_date = datetime(2019, 4, 13)
@@ -57,6 +56,7 @@ path_lab = r'LOGS'
 
 color_list = ["#5E0DAC", '#FF4F00', '#375CB1', '#FF7400', '#FFF400', '#FF0056']
 
+
 def create_cache_div(name, info):
     return dcc.Store(id='{0}-log-storage'.format(name), storage_type='memory', data = info)
 
@@ -68,7 +68,7 @@ app.layout = html.Div([
     # Real time control
     dcc.Interval(
         id='interval-log-update',
-        interval=1*1000, # in milliseconds
+        interval=10*1000, # in milliseconds
         n_intervals=0
     ),
     dcc.Interval(
@@ -119,9 +119,9 @@ app.layout = html.Div([
             ),
             html.Div([
                 dcc.Dropdown( id ='experiment',
-                options=[{'label': i, 'value': i} for i in experiments_auto],
+                #options=[{'label': i, 'value': i} for i in experiments_auto],
                 multi=False,
-                value= experiments_auto[0],
+                #value= experiments_auto[0],
                 ),
             ], style={}
             ), 
@@ -135,9 +135,9 @@ app.layout = html.Div([
             ), 
             html.Div([
                 dcc.Dropdown(id='year',
-                options=[{'label': i, 'value': i} for i in years_auto],
+                #options=[{'label': i, 'value': i} for i in years_auto],
                 multi=False,
-                value= years_auto[-1],
+                #value= years_auto[-1],
                 ),
             ],style={}
             ), 
@@ -158,9 +158,6 @@ app.layout = html.Div([
         html.Div([    
             # Channel selection dropdown
             dcc.Dropdown(id='channels_dropdown',
-                    options=[{'label': i, 'value': i} for i in channels_auto],
-                    # defaut selections
-                    value=channels_auto,
                     multi=True,
             )
             # channel selection style
@@ -236,7 +233,7 @@ app.layout = html.Div([
                                 {'label': 'Regular Updates', 'value': 'regular'},
                                 {'label': 'Fast Updates', 'value': 'fast'}
                             ],
-                            value='regular',
+                            value='no',
                             style= {'width': '100%'},
                             clearable=False,
                             searchable=False
@@ -270,15 +267,15 @@ app.layout = html.Div([
 
 
 ########################################################
+
 # Get the experiment list automatically every 24h
 @app.callback([Output('experiment', 'options'),
                Output('experiment', 'value'),
               Output('experiments-storage','data')],
-              [Input('interval-log-update', 'n_intervals')],
+              [Input('interval-info-update', 'n_intervals')],
               [State('experiments-storage','data')])
 def update_experiments(n_intervals, data):
-
-    if n_intervals==0:
+    if n_intervals is 0:
         a = {}
         try:
             experiment_update = get_folder_names(all_folder_paths(path_lab))
@@ -290,6 +287,7 @@ def update_experiments(n_intervals, data):
             data = data or {}
             a['experiments'] = experiment_update
             return [{'label': i, 'value': i} for i in experiment_update], experiment_update[0], a
+    return no_update, no_update, no_update
 
 # Get year list automatically
 @app.callback([Output('year', 'options'),
@@ -298,16 +296,12 @@ def update_experiments(n_intervals, data):
               [Input('experiment', 'value')],
               [State('years-storage','data')])
 def update_years(exp, data):
-    
-    try:
+    if exp is not None: 
         years_update = get_folder_names(all_folder_paths(path_lab + '\\' + exp + r'\data'))
         data = data or {}
         data['years'] = years_update
         return [{'label': i, 'value': i} for i in years_update], years_update[-1], data
-    
-    except FileNotFoundError as error:
-        print(error)
-        print('Cannot get the year list')
+    else: 
         return no_update, no_update, no_update
 
 # Get effective channels list
@@ -338,8 +332,8 @@ def update_years(exp, data):
 #         print('Cannot get the channel list')
 #         return no_update, no_update, no_update
 
-
 @app.callback([Output('channels_dropdown', 'options'),
+               Output('channels_dropdown', 'value'),
               Output('channels-storage','data')],
               [Input('experiment', 'value'),
               Input('year', 'value'),
@@ -347,69 +341,54 @@ def update_years(exp, data):
               Input('date_range', 'end_date')],
               [State('channels-storage','data')])
 def update_channels(exp, year, start_date, end_date, data):
+    if exp is not None and year is not None: 
+        path = path_lab + '\\' + exp + r'\data' + '\\' + year
+        channels_update = set()
+
+        # get the all possible channels in the interval
+        try:
+            end_date = datetime.strptime(end_date,r'%Y-%m-%d')
+            start_date = datetime.strptime(start_date, r'%Y-%m-%d')
+        except TypeError as error:      
+            print(error)
+            print("Start day and end day have wrong filetype.")
+        
+        date_list = datelist(start_date, end_date) # timedate type
+        
+        # search all channels in the date interval
+        for date in date_list: 
+            single_date_str = date.strftime(r'%y-%m-%d')
+            
+            try:
+                path_log = all_file_paths(path + '\\'+ single_date_str, '.log')
+                log = get_channels(path_log)
+                channels_update.update(set(log))
+            except:
+                print('No log files')
+            try:
+                path_chan = all_file_paths(path + '\\'+ single_date_str, '.chan')
+                chan = get_channels(path_chan)
+                channels_update.update(set(chan))
+            except:
+                print('No chan files')
     
-    path = path_lab + '\\' + exp + r'\data' + '\\' + year
-    channels_update = set()
-
-    # get the all possible channels in the interval
-    try:
-        end_date = datetime.strptime(end_date,r'%Y-%m-%d')
-        start_date = datetime.strptime(start_date, r'%Y-%m-%d')
-    except TypeError as error:      
-        print(error)
-        print("Start day and end day have wrong filetype.")
-    date_list = datelist(start_date, end_date) # timedate type
-
-    date = date_list[-1]
-    single_date_str = date.strftime(r'%y-%m-%d')
-    try:
-        path_log = all_file_paths(path + '\\'+ single_date_str, '.log')
-        log = get_channels(path_log)
-        channels_update.update(set(log))
-    except:
-        print('No log files')
-    try:
-        path_chan = all_file_paths(path + '\\'+ single_date_str, '.chan')
-        chan = get_channels(path_chan)
-        channels_update.update(set(chan))
-    except:
-        print('No chan files')
-
-
-    # for date in date_list: 
-    #     single_date_str = date.strftime(r'%y-%m-%d')
-        
-    #     try:
-    #         path_log = all_file_paths(path + '\\'+ single_date_str, '.log')
-    #         log = get_channels(path_log)
-    #         channels_update.update(set(log))
-    #     except:
-    #         print('No log files')
-    #     try:
-    #         path_chan = all_file_paths(path + '\\'+ single_date_str, '.chan')
-    #         chan = get_channels(path_chan)
-    #         channels_update.update(set(chan))
-    #     except:
-    #         print('No chan files')
-        
-    channels_update = list(channels_update)
-    data = data or {}
-    data['channels'] = channels_update
-    return [{'label': i, 'value': i} for i in channels_update], data
-
-
+        channels_update = list(channels_update)
+        data = data or {}
+        data['channels'] = channels_update
+        return [{'label': i, 'value': i} for i in channels_update],channels_update[0], data
+    else:
+        return no_update, no_update, no_update
 
 # Get effective date range 
 @app.callback([Output('date_range', 'min_date_allowed'),
                 Output('date_range', 'max_date_allowed'),
-                 Output('date_range', 'initial_visible_month'),
-                 Output('date_range', 'start_date'),
+                Output('date_range', 'initial_visible_month'),
+                Output('date_range', 'start_date'),
                 Output('date_range', 'end_date'),],
                [Input('experiment', 'value'),
                Input('year', 'value')])
 def update_date_range(exp, year):
-
-    try:
+    if exp is not None and year is not None: 
         path = path_lab + '\\' + exp + r'\data' + '\\' + year
         dates = all_folder_paths(path)
         min_date = datetime.strptime(path_leaf(dates[0]), r'%y-%m-%d')
@@ -419,12 +398,28 @@ def update_date_range(exp, year):
         start_date = max_date 
 
         return min_date, max_date, month, start_date, max_date
-
-    except FileNotFoundError as error:
-        print(error)
-        print('There is no data in this year.')
+    else:
         return no_update, no_update, no_update, no_update, no_update
-   
+
+# Callback the update mode 
+@app.callback(Output('dropdown-interval-control', 'value'),
+                [Input('date_range', 'start_date'),
+                 Input('date_range', 'end_date')])
+def storage_mode(start_date, end_date):  
+    try:
+        end_date = datetime.strptime(end_date,r'%Y-%m-%d')
+        start_date = datetime.strptime(start_date, r'%Y-%m-%d')
+    except TypeError as error:      
+        print(error)
+        print("Start day and end day have wrong filetype.")
+
+    # Select record mode
+    if end_date.date() < datetime.today().date():
+        print('The update is needless for the data selected.' )
+        return 'no'
+    else: 
+        return 'regular' 
+
 # Callback the update speed
 @app.callback(Output('interval-log-update', 'interval'),
               [Input('dropdown-interval-control', 'value')])
@@ -442,27 +437,7 @@ def update_interval_log_update(interval_rate):
     # Refreshes every 24 hours
     elif interval_rate == 'no':
         return 24 * 60 * 60 * 1000
-
-# Callback the update mode 
-@app.callback(Output('dropdown-interval-control', 'value'),
-                [Input('date_range', 'start_date'),
-                 Input('date_range', 'end_date')])
-def storage_mode(start_date, end_date):
-    
-    try:
-        end_date = datetime.strptime(end_date,r'%Y-%m-%d')
-        start_date = datetime.strptime(start_date, r'%Y-%m-%d')
-    except TypeError as error:      
-        print(error)
-        print("Start day and end day have wrong filetype.")
-
-    # Select record mode
-    if end_date.date() < datetime.today().date():
-        print('The update is needless for the data selected.' )
-        return 'no'
-    else: 
-        no_update    
-
+  
 
 # Dash can't have the same Input and Output
 # Save the data as json file in cache
@@ -474,139 +449,157 @@ def storage_mode(start_date, end_date):
                   Input('date_range', 'end_date'),
                   Input('experiment', 'value'),
                   Input('channels-storage', 'data'),],
-                 [State('before-log-storage', 'children'),
+                 [
+                  State('before-log-storage', 'children'),
                   State('num-before-storage','data'),
                   State('start-date-storage', 'children'),
                   State('end-date-storage','children')
                   ])
 # @cache.memoize(timeout=timeout)  # in seconds
 def get_before_log(start_date, end_date, exp, data_channel, before, num_before, start_date_old, end_date_old): 
+    if exp is not None:
+        # get the path from the selection of experiment
+        path = path_lab +'\\' + exp +'\\data'
 
-    # the first time, the list of date_list_old is initialized as an empty list
-    if start_date_old == None and end_date_old == None:
-        date_list_old = []
-    else: 
-        start_date_old = datetime.strptime(start_date_old['start_date_old'], r'%Y-%m-%d')
-        end_date_old = datetime.strptime(end_date_old['end_date_old'],r'%Y-%m-%d')
-        date_list_old = datelist(start_date_old, end_date_old)
-    try:
-        end_date = datetime.strptime(end_date,r'%Y-%m-%d')
-        start_date = datetime.strptime(start_date, r'%Y-%m-%d')
-    except TypeError as error:      
-        print(error)
-        print("start_date and end_date have wrong filetype.")
-    # get the date list 
-    date_list = datelist(start_date, end_date)
-    
-    # the different dates between two lists
-    date_update = [i.date() for i in date_list if i not in date_list_old]
-    
-    # remove today, it will update in another callback
-    if datetime.today().date() in date_update:
-        date_update.remove(datetime.today().date())
+        # the first time, the list of date_list_old is initialized as an empty list
+        if start_date_old == None and end_date_old == None:
+            date_list_old = []
+        else: 
+            start_date_old = datetime.strptime(start_date_old['start_date_old'], r'%Y-%m-%d')
+            end_date_old = datetime.strptime(end_date_old['end_date_old'],r'%Y-%m-%d')
+            date_list_old = datelist(start_date_old, end_date_old)
         
-    cache_dic = {}
-    num_total = 0
-    
-    # get the path from the selection of experiment
-    path = path_lab +'\\' + exp +'\\data'
-    # get the channel set from the channel storage
-    
-    if  data_channel is None:
-        print("The channel set is empty.")
-        return no_update, no_update, no_update   
-    else: 
-        channel_set = data_channel['channels'] 
-        for single_date in date_update:
+        try:
+            end_date = datetime.strptime(end_date,r'%Y-%m-%d')
+            start_date = datetime.strptime(start_date, r'%Y-%m-%d')
+        except TypeError as error:      
+            print(error)
+            print("start_date and end_date have wrong filetype.")  
+        # get the date list 
+        date_list = datelist(start_date, end_date)
+        
+        # the different dates between two lists
+        date_update = [i.date() for i in date_list if i not in date_list_old]
+        
+        # remove today, it will update in another callback
+        if datetime.today().date() in date_update:
+            date_update.remove(datetime.today().date())
+            
+        cache_dic = {}
+        num_total = 0
+        
+        # get the channel set from the channel storage
+        if  data_channel is not None:
+            
+            channel_set = data_channel['channels'] 
+            for single_date in date_update:
 
-            # extract one day's data 
-            try:
-                df = get_1day_data_str(single_date, channel_set, path)
-                single_date_str = single_date.strftime(r'%Y-%m-%d')
+                # extract one day's data 
+                try:
+                    df = get_1day_data_str(single_date, channel_set, path)
+                    single_date_str = single_date.strftime(r'%Y-%m-%d')
 
-            except Exception as error: 
-                print(error)
-                print("Fail to read the data in disk.")
-            else: 
-                print('Succeed to read the before data in disk.')
+                except Exception as error: 
+                    print(error)
+                    print("Fail to read the data in disk.")
+                else: 
+                    print('Succeed to read the before data in disk.')
+                
+                try:
+                    num_df = len(df)
+                    json_data = df.to_json(orient='split')
+                    
+                    # create individual store component according to the date
+                    cache_dic[single_date_str] = json_data
+
+                except Exception as error: 
+                    print(error)
+                    print("Fail to transfer the data to json type.")
+                else: 
+                    print('Succeed to transfer the data to json type.')
+                    num_total = num_total + num_df
+
+            return cache_dic, {'num_before': num_total}, {'start_date_old':start_date},  {'end_date_old':end_date}
+
+        else:
+            print("The channel set is empty.")
+            return no_update, no_update, no_update, no_update      
+    else:         
+        return no_update, no_update, no_update, no_update
+
+# Update today's json data 
+@app.callback([Output('today-log-storage', 'children'),
+               Output('num-today-storage','data')],
+                  [ Input('dropdown-interval-control', 'value'),
+                    Input('interval-log-update', 'n_intervals'),
+                   Input('experiment', 'value'),
+                  Input('channels-storage', 'data'),
+                  Input('date_range', 'start_date'),
+                  Input('date_range', 'end_date')],
+                  [State('today-log-storage', 'children')])
+def get_today_log(speed_value, n_intervals, exp, channels, start_date, end_date, data):
+
+    if exp is not None:   
+        if channels is not None:
+            
+            # get the path from the selection of experiment
+            path = path_lab +'\\' + exp +'\\data'
             
             try:
-                num_df = len(df)
+                end_date = datetime.strptime(end_date, r'%Y-%m-%d')
+                start_date = datetime.strptime(start_date, r'%Y-%m-%d')
+            except TypeError as error:      
+                print(error)
+                print("start_date and end_date have wrong filetype.")
+
+            # Select live mode
+            if end_date.date() == datetime.today().date(): 
+                
+                today_str = datetime.today().strftime(r'%Y-%m-%d')
+
+                num = 0
+                
+                # get the channel set from the channel storage
+                channel_set = channels['channels']           
+                
+                try:
+                    df = get_1day_data_str(datetime.today(),channel_set, path)
+
+                except FileNotFoundError as error:      
+                    print(error)
+                    print("There is no data is placed in the today\'s directory.")
+                
+                num =len(df) 
                 json_data = df.to_json(orient='split')
                 
-                # create individual store component according to the date
-                cache_dic[single_date_str] = json_data
+                if data is not None:
+                    data[today_str] = json_data
+                else:
+                    data = {}
+                    data[today_str] = json_data
 
-            except Exception as error: 
-                print(error)
-                print("Fail to transfer the data to json type.")
+                return data, {'num_today': num}
             else: 
-                print('Succeed to transfer the data to json type.')
-                num_total = num_total + num_df
-
-        return cache_dic, {'num_before': num_total}, {'start_date_old':start_date},  {'end_date_old':end_date}
-
-# # Update today's json data 
-# @app.callback([Output('today-log-storage', 'children'),
-#                Output('num-today-storage','data')],
-#                   [Input('interval-log-update', 'n_intervals'),
-#                    Input('experiment', 'value'),
-#                   Input('channels-storage', 'data'),
-#                   Input('date_range', 'start_date'),
-#                   Input('date_range', 'end_date')])
-# def get_today_log(n_intervals, exp, data_channel, start_date, end_date):
-   
-#     try:
-#         end_date = datetime.strptime(end_date, r'%Y-%m-%d')
-#         start_date = datetime.strptime(start_date, r'%Y-%m-%d')
-#     except TypeError as error:      
-#         print(error)
-#         print("start_date and end_date have wrong filetype.")
-
-#     # Select live mode
-#     if end_date.date() == datetime.today().date(): 
-#         today_str = datetime.today().strftime(r'%Y-%m-%d')
-#         num = 0 
-#         cache_dic = {}
-#         # get the path from the selection of experiment
-#         path = path_lab +'\\' + exp +'\\data'
-        
-#         # get the channel set from the channel storage
-#         if data_channel is None:
-#             raise Exception("The channel set is empty.")
-#             return no_update, no_update
-#         else: 
-#             channel_set = data_channel['channels']           
-#             try:
-#                 df = get_1day_data_str(datetime.today(), channel_set, path)
-#             except FileNotFoundError as error:      
-#                 print(error)
-#                 print("There is no data is placed in the today's directory.")
-            
-#             num =len(df) 
-#             json_data = df.to_json(orient='split')
-
-#             try:
-#                 cache_dic[today_str] = json_data
-#             except:
-#                 print('error --------------------------------')
-#             return cache_dic, {'num-today': num}
-#     else:
-#         return no_update, no_update
-    
+                return no_update, no_update
+        else: 
+            return no_update, no_update
+    else:
+        return no_update, no_update
 
 
 # Display the data size
 # The figure extend today's data instead of a enormous dataset
 @app.callback(Output('div-num-display', 'children'),
-              [Input('num-before-storage', 'data'),Input('num-today-storage', 'data')])
-def update_num_display_and_time(num_before, num_today):  
+              [Input('num-before-storage', 'data'),
+              Input('num-today-storage', 'data'),
+              Input('interval-log-update', 'n_intervals')])
+def update_num_display_and_time(num_before, num_today, n_intervals):  
 
-    if num_before == None:
+    if num_before is None:
         num_1 = 0
     else: 
         num_1 = num_before['num_before']
-    if num_today == None:
+    if num_today is None:
         num_2 = 0
     else: 
         num_2 = num_today['num_today']
@@ -614,15 +607,85 @@ def update_num_display_and_time(num_before, num_today):
     total_num = num_1 + num_2
     return html.H2('{0}'.format(total_num), style={ 'margin-top': '3px'})
 
+# # Callback the graph
+# @app.callback(Output('temperature-graph', 'figure'),
+#             [Input('before-log-storage', 'children'),
+#             Input('channels_dropdown', 'value'),
+#             Input('display_mode','value'),
+#             Input('autoscale','n_clicks_timestamp')],)
+# def update_graph(before, selected_dropdown_value, display_mode_value, click):
+#     layout_set = {'colorway': color_list,
+#                        'title':"The sensor channel monitor",
+#                        'height':600,
+#                         'xaxis':{"title":"Date",
+#                             'rangeselector': {'buttons': list([
+#                                 {'count': 10, 'label': '10m', 'step': 'minute', 'stepmode': 'backward'},
+#                                 {'count': 1, 'label': '1h', 'step': 'hour', 'stepmode': 'backward'},
+#                                 {'count': 6, 'label': '6h', 'step': 'hour', 'stepmode': 'backward'},
+#                                 {'step': 'all'}])},
+#                             'rangeslider': {'visible': True,'yaxis' :{"rangemode": "auto"} }, 'type': 'date'},
+#                         'margin':{'l':60, 'b': 40, 't': 80, 'r': 10},
+#                         'yaxis' : {"title":"Value",
+#                                 },
+#                         'uirevision': click,  
+#             }
 
+#     df = pd.DataFrame()
+#     if before is not None:
+#         for key, value in before.items():
+#             before_df = pd.read_json(value, orient='split')
+#             df = pd.concat([df, before_df], axis=0, sort=True)
+    
+#         # create empty trace     
+#         trace = []
+#         # to keep same format for single channel or mutiple channels
+#         if not isinstance(selected_dropdown_value, (list,)):
+#             selected_dropdown_value = [selected_dropdown_value]
+        
+#         for channel in selected_dropdown_value:
+#             key_time = 'Time_'+ channel
+#             key = channel
+#             if key in df.keys() and key_time in df.keys():
+#                 temp_df = pd.concat([df[key_time], df[key]], axis=1)
+#                 temp_df[key_time] = pd.to_datetime(temp_df[key_time], format=r'%Y%m%d %H:%M:%S')
+                
+#                 # eliminate the NaN elements
+#                 temp_df.dropna()
+#                 trace.append(go.Scatter(x=temp_df[key_time], y=temp_df[key],mode='lines',
+#                 opacity=0.7,name=channel, textposition='bottom center'))
+#             else: 
+#                 print('There is no trace required')
 
-# Callback the graph
-@app.callback(Output('temperature-graph', 'figure'),
+#         data = trace
+#         # overlap display
+#         if display_mode_value == 'overlap':
+#             figure = {'data': data, 'layout': layout_set}
+        
+#         # separate dislay 
+#         elif display_mode_value == 'separate':
+#             num =  len(selected_dropdown_value)
+#             figure = tools.make_subplots(rows=num, cols=1)
+            
+#             for index, (tra, chan) in enumerate(zip(trace, selected_dropdown_value)):     
+#                 figure.append_trace(tra, index+1, 1)
+#                 figure['layout']['xaxis{}'.format(index+1)].update(title='The channel of {0}'.format(chan)) 
+            
+#             figure['layout'].update(height=500*num)  
+
+#         return figure       
+#     else:
+#         return no_update 
+
+@app.callback([Output('temperature-graph', 'figure'),
+               Output('div-data-display', 'children')],
             [Input('before-log-storage', 'children'),
+            Input('date_range', 'end_date'),
+            Input('today-log-storage', 'children'),
             Input('channels_dropdown', 'value'),
             Input('display_mode','value'),
-            Input('autoscale','n_clicks_timestamp')],)
-def update_graph(before, selected_dropdown_value, display_mode_value, click):
+            Input('autoscale','n_clicks_timestamp')],
+            [State('temperature-graph', 'figure'),])
+def update_graph(before_data, end_date, today_data, selected_dropdown_value, display_mode_value, click, figure):   
     layout_set = {'colorway': color_list,
                        'title':"The sensor channel monitor",
                        'height':600,
@@ -636,41 +699,91 @@ def update_graph(before, selected_dropdown_value, display_mode_value, click):
                         'margin':{'l':60, 'b': 40, 't': 80, 'r': 10},
                         'yaxis' : {"title":"Value",
                                 },
-                        'uirevision': click,
-                       
+                        'uirevision': click,  
             }
-
-    df = pd.DataFrame()
-    if before is not None:        
-        for key, value in before.items():
-            before_df = pd.read_json(value, orient='split')
-            df = pd.concat([df, before_df], axis=0, sort=True)
-        
-        print(df)
-        # create empty trace     
-        trace = []
+    end_date = datetime.strptime(end_date, r'%Y-%m-%d')
+    if end_date.date() == datetime.today().date(): 
+         
         # to keep same format for single channel or mutiple channels
         if not isinstance(selected_dropdown_value, (list,)):
             selected_dropdown_value = [selected_dropdown_value]
         
+        if today_data is not None:
+            trace = []
+            dis = []
+            data = pd.DataFrame()
+            df = pd.DataFrame()
 
-        for channel in selected_dropdown_value:
-            key_time = 'Time_'+ channel
-            key = channel
-            if key in df.keys() and key_time in df.keys():
-                temp_df = pd.concat([df[key_time], df[key]], axis=1)
-                temp_df[key_time] = pd.to_datetime(temp_df[key_time], format=r'%Y%m%d %H:%M:%S')
+            for key, value in today_data.items():
+                    today_data = pd.read_json(value, orient='split')
+                    data = pd.concat([data, today_data], axis=0, sort=True)
+
+            if before_data is not None:
+                for key, value in before_data.items():
+                    before_df = pd.read_json(value, orient='split')
+                    df = pd.concat([df, before_df], axis=0, sort=True)
+                data =  pd.concat([data, df], axis=0, sort=True)
+            
+            data.dropna()  
+            if selected_dropdown_value is not None:
+                for channel in selected_dropdown_value:
+                    channel_time = 'Time_'+ channel
+                    
+                    data[channel_time] = pd.to_datetime(data[channel_time], format=r'%Y%m%d %H:%M:%S')
                 
-                # eliminate the NaN elements
-                temp_df.dropna()
-                trace.append(go.Scatter(x=temp_df[key_time], y=temp_df[key],mode='lines',
-                opacity=0.7,name=channel, textposition='bottom center'))
+                    trace.append(go.Scatter(x=data[channel_time], y=data[channel],mode='lines',
+                    opacity=0.7,name=channel, textposition='bottom center'))
+                    
+                    dis.append(html.H6('{0} : {1}'.format(channel, data[channel].iloc[-1]), style={ 'margin-top': '3px'}))
+            
+                # overlap display
+                if display_mode_value == 'overlap':
+                    figure = {'data': trace, 'layout': layout_set}
+                
+                # separate dislay 
+                elif display_mode_value == 'separate':
+                    num =  len(selected_dropdown_value)
+                    
+                    figure = tools.make_subplots(rows=num, cols=1)
+                    for index, (tra, chan) in enumerate(zip(trace, selected_dropdown_value)):     
+                        figure.append_trace(tra, index+1, 1)
+                        figure['layout']['xaxis{}'.format(index+1)].update(title='The channel of {0}'.format(chan)) 
+            
+                    figure['layout'].update(height=500*num) 
+                
+                return figure, dis
             else: 
-                print('There is no trace required')
+                return no_update, no_update
+        else:
+            return no_update, no_update
+    else:
+        df = pd.DataFrame()
+        if before_data is not None:
+            for key, value in before_data.items():
+                before_df = pd.read_json(value, orient='split')
+                df = pd.concat([df, before_df], axis=0, sort=True)
+        
+            # create empty trace     
+            trace = []
+            # to keep same format for single channel or mutiple channels
+            if not isinstance(selected_dropdown_value, (list,)):
+                selected_dropdown_value = [selected_dropdown_value]
+            
+            for channel in selected_dropdown_value:
+                key_time = 'Time_'+ channel
+                key = channel
+                if key in df.keys() and key_time in df.keys():
+                    temp_df = pd.concat([df[key_time], df[key]], axis=1)
+                    temp_df[key_time] = pd.to_datetime(temp_df[key_time], format=r'%Y%m%d %H:%M:%S')
+                    
+                    # eliminate the NaN elements
+                    temp_df.dropna()
+                    trace.append(go.Scatter(x=temp_df[key_time], y=temp_df[key],mode='lines',
+                    opacity=0.7,name=channel, textposition='bottom center'))
+                else: 
+                    print('There is no trace required')
 
-
-        data = trace
-        if len(trace) !=0:
+            data = trace
             # overlap display
             if display_mode_value == 'overlap':
                 figure = {'data': data, 'layout': layout_set}
@@ -679,63 +792,154 @@ def update_graph(before, selected_dropdown_value, display_mode_value, click):
             elif display_mode_value == 'separate':
                 num =  len(selected_dropdown_value)
                 figure = tools.make_subplots(rows=num, cols=1)
+                
                 for index, (tra, chan) in enumerate(zip(trace, selected_dropdown_value)):     
                     figure.append_trace(tra, index+1, 1)
                     figure['layout']['xaxis{}'.format(index+1)].update(title='The channel of {0}'.format(chan)) 
                 
-                figure['layout'].update(height=500*num)         
-                    
-            return figure
-        else:
-            return no_update 
-    else:
-        return no_update
+                figure['layout'].update(height=500*num)  
 
-
-@app.callback([Output('temperature-graph', 'extendData'),
-               Output('div-data-display', 'children')],
-            [Input('today-log-storage', 'children'),
-            Input('channels_dropdown', 'value'),
-            Input('display_mode','value'),
-            Input('autoscale','n_clicks_timestamp')],
-            [State('temperature-graph', 'figure'),])
-def update_graph_extend(today, selected_dropdown_value, display_mode_value, click, figure):
-    
-    # live mode
-    if (today != None):
-        df_today = pd.DataFrame()
-        # only one item in today dictionary, just keep the format
-        for key, value in today.items():
-            today = pd.read_json(value, orient='split')
-            df_today = pd.concat([df_today, today], axis=0)
-        
-        trace = []
-        dis = []
-        for channel in selected_dropdown_value:
-            key_time = 'Time_'+channel
-            key = channel
-
-            temp_df = pd.concat([df_today[key_time], df_today[key]], axis=1)
-            temp_df[key_time] = pd.to_datetime(temp_df[key_time], format=r'%Y%m%d %H:%M:%S')
-
-            trace.append(go.Scatter(x=temp_df[key_time], y=temp_df[key],mode='lines',
-            opacity=0.7,name=channel, textposition='bottom center'))
-
-            dis.append(html.H3('{0} : {1}'.format(channel, temp_df[key].iloc[-1]), style={ 'margin-top': '3px'}))
-        
-            display = html.Div(dis)
-        
-        if len(trace) !=0:
-            # overlap display
-            if display_mode_value == 'overlap':
-                return trace, display
-            # separate dislay 
-            elif display_mode_value == 'separate': 
-                return trace, display
+            return figure, no_update       
         else:
             return no_update, no_update
-    else: 
-        return no_update, no_update
+
+       
+
+    # # live mode
+    # if today_data is not None:
+    #     end_date = datetime.strptime(end_date, r'%Y-%m-%d')
+    #     if end_date.date() == datetime.today().date(): 
+    #         if selected_dropdown_value is not None:
+                
+    #             trace = []
+    #             dis = []
+    #             data = pd.DataFrame()
+    #             for key, value in today_data.items():
+    #                 today_data = pd.read_json(value, orient='split')
+    #                 data = pd.concat([data, today_data], axis=0, sort=True)
+
+    #             if not isinstance(selected_dropdown_value, (list,)):
+    #                 selected_dropdown_value = [selected_dropdown_value]
+                
+    #             for channel in selected_dropdown_value:
+    #                 channel_time = 'Time_'+channel
+
+    #                 data[channel_time] = pd.to_datetime(data[channel_time], format=r'%Y%m%d %H:%M:%S')
+
+    #                 trace.append(go.Scatter(x=data[channel_time], y=data[channel],mode='lines',
+    #                 opacity=0.7,name=channel, textposition='bottom center'))
+
+    #                 dis.append(html.H6('{0} : {1}'.format(channel, data[channel].iloc[-1]), style={ 'margin-top': '3px'}))
+        
+    #             if len(trace) is not 0:
+                    
+    #                 # overlap display
+    #                 if display_mode_value == 'overlap':
+    #                     return trace, dis
+    #                 # separate dislay 
+    #                 elif display_mode_value == 'separate': 
+    #                     return trace, dis
+    #             else:
+    #                 return no_update, no_update
+    #         else: 
+    #             return no_update, no_update
+    #     else: 
+    #         return no_update, no_update
+    # else: 
+    #     return no_update, no_update
+
+
+
+
+# @app.callback([Output('temperature-graph', 'extendData'),
+#                Output('div-data-display', 'children'),
+#                Output('num-today-storage', 'data'),],
+#             [Input('experiment', 'value'),
+#             Input('channels-storage', 'data'),
+#             Input('date_range', 'start_date'),
+#             Input('date_range', 'end_date'),
+            
+#             Input('channels_dropdown', 'value'),
+#             Input('display_mode','value'),
+#             Input('autoscale','n_clicks_timestamp'),
+#             Input('interval-log-update', 'n_intervals')],
+#             [State('temperature-graph', 'figure'),])
+# def update_graph_extend(exp, channels, start_date, end_date, selected_dropdown_value, display_mode_value, click,n_intervals, figure):
+#     if exp is not None:
+#         # Get the path from the selection of experiment
+#         path = path_lab +'\\' + exp +'\\data'    
+
+#         # Get the selected date range
+#         try:
+#             end_date = datetime.strptime(end_date, r'%Y-%m-%d')
+#             start_date = datetime.strptime(start_date, r'%Y-%m-%d')
+#         except TypeError as error:      
+#             print(error)
+#             print("start_date and end_date have wrong filetype.")
+
+#         # Select live mode
+#         if end_date.date() == datetime.today().date(): 
+             
+#             # Get the channel set from the channel storage
+#             if channels is not None:
+                
+#                 channel_set = channels['channels']
+
+#                 # Get today's data          
+#                 try:
+#                     df_today = get_1day_data_str(datetime.today(), channel_set, path)
+#                 except FileNotFoundError as error:      
+#                     print(error)
+#                     print("There is no data is placed in the today\'s directory.")
+#                 else: 
+#                     num =len(df_today)
+#                     trace = []
+#                     dis = []
+
+#                     print(selected_dropdown_value)
+                    
+#                     for channel in selected_dropdown_value:
+#                         key_time = 'Time_'+channel
+#                         key = channel
+#                         print('1')
+#                         try:
+#                             df_today[key_time] = pd.to_datetime(df_today[key_time], format=r'%Y%m%d %H:%M:%S')
+#                             print('succeed')
+#                         except:
+#                             print('erooooooooor')
+#                         print(df_today[key_time])
+#                         print(df_today.iloc[0][key_time])
+
+#                         trace.append(go.Scatter(x=df_today[key_time], y=df_today[key],mode='lines',
+#                         opacity=0.7,name=channel, textposition='bottom center'))
+#                         print('2')
+
+#                         try:
+#                             dis.append(html.H2('{0} : {1}'.format(channel, df_today[key].iloc[-1]), style={ 'margin-top': '3px'}))
+                    
+#                         except:
+#                             print('live display fails')
+                
+#                 print(num)
+#                 if len(trace) is not 0:
+#                     # overlap display
+#                     if display_mode_value == 'overlap':
+
+#                         return trace, dis, {'num_today': num}
+#                     # separate dislay 
+#                     elif display_mode_value == 'separate': 
+
+#                         return trace, dis, {'num_today': num}
+#                 else:
+
+#                     return no_update, no_update, no_update    
+#             else: 
+#                 return no_update, no_update, no_update
+#         else:
+#             return no_update, no_update, no_update
+#     else:
+#         return no_update, no_update, no_update
+        
 
 
 

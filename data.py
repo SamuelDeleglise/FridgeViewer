@@ -70,8 +70,9 @@ def get_channels(file_paths_list):
     pattern = re.compile(r'(\s|\_)\d+\-\d+\-\d+\.\w+')
     
     for filepath in file_paths_list:
-        names.append(re.sub(pattern,'', path_leaf(filepath)))
-    
+        temp = re.sub(pattern,'', path_leaf(filepath))
+        if temp not in ['heaters', 'Errors']:
+            names.append(temp)
     return names
 ###############################################################
 # Fast reading
@@ -138,7 +139,6 @@ def get_file_chan(path):
             value.append(ts)
         d = {'Time': time, 'Value': value}
         df = pd.DataFrame(d)
-
     return df
 
 
@@ -197,7 +197,7 @@ def get_1day_data_str(single_date, channels, path_data):
                 df = get_file_chan(path + file_name_chan)
                 print('Succeed to store he channel', chan, '(chan)')
             except:
-                print('This channel has wrong data format: ', chan)
+                print('This channel has wrong data format: ', chan,'(chan)')
                 continue
                 
         # rename the key 
