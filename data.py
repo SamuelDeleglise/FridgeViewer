@@ -191,7 +191,7 @@ def get_1day_data_str(single_date, channels, path_data):
         # get the data from a file
         try: 
             df = get_file_str(path + file_name_log)
-            print('Succeed to store the channel', chan, '(log)')
+            #print('Succeed to store the channel', chan, '(log)')
         except:
             try: 
                 df = get_file_chan(path + file_name_chan)
