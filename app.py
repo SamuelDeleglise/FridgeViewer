@@ -18,8 +18,9 @@ from datetime import timedelta, date, time, datetime
 import plotly.graph_objs as go
 from plotly import tools
 import numpy as np
+import sys
 
-from data import*
+from data import *
 
 app = dash.Dash(__name__)
 
@@ -52,7 +53,9 @@ initial_month = datetime(2019, 4, 13)
 initial_end_date = datetime(2019, 4, 14)
 initial_start_date = datetime(2019, 4, 13)
 path_data_auto = r'LOGS\DummyFridge\data'
-path_lab = r'LOGS'
+#path_lab = r'LOGS'
+#path_lab = r'Z:\ManipMembranes'
+path_lab = r'Z:\ManipMembranes'
 
 color_list = ["#5E0DAC", '#FF4F00', '#375CB1', '#FF7400', '#FFF400', '#FF0056']
 
@@ -266,6 +269,7 @@ app.layout = html.Div([
 
 ########################################################
 
+
 # Get the experiment list automatically every 24h
 @app.callback([Output('experiment', 'options'),
                Output('experiment', 'value'),
@@ -356,6 +360,8 @@ def update_channels(exp, year, start_date, end_date, data):
         # search all channels in the date interval
         for date in date_list: 
             single_date_str = date.strftime(r'%y-%m-%d')
+            single_date_str = date.strftime(r'%Y-%m-%d')
+            print(single_date_str)
             
             try:
                 path_log = all_file_paths(path + '\\'+ single_date_str, '.log')
@@ -389,6 +395,7 @@ def update_channels(exp, year, start_date, end_date, data):
                [Input('experiment', 'value'),
                Input('year', 'value')])
 def update_date_range(exp, year):
+    print('bon')
     if exp is not None and year is not None: 
         path = path_lab + '\\' + exp + r'\data' + '\\' + year
         dates = all_folder_paths(path)
@@ -406,7 +413,8 @@ def update_date_range(exp, year):
 @app.callback(Output('dropdown-interval-control', 'value'),
                 [Input('date_range', 'start_date'),
                  Input('date_range', 'end_date')])
-def storage_mode(start_date, end_date):  
+def storage_mode(start_date, end_date):
+    print('alors')
     try:
         end_date = datetime.strptime(end_date,r'%Y-%m-%d')
         start_date = datetime.strptime(start_date, r'%Y-%m-%d')
@@ -425,7 +433,7 @@ def storage_mode(start_date, end_date):
 @app.callback(Output('interval-log-update', 'interval'),
               [Input('dropdown-interval-control', 'value')])
 def update_interval_log_update(interval_rate):
-
+    print('update')
     if interval_rate == 'fast':
         return 500
 
@@ -453,7 +461,8 @@ def update_interval_log_update(interval_rate):
                   State('num-before-storage','data'),
                   ])
 # @cache.memoize(timeout=timeout)  # in seconds
-def get_before_log(start_date, end_date, exp, data_channel, before, num_before): 
+def get_before_log(start_date, end_date, exp, data_channel, before, num_before):
+    print('before')
     if exp is not None:
     
         # get the path from the selection of experiment
@@ -560,7 +569,7 @@ def get_before_log(start_date, end_date, exp, data_channel, before, num_before):
                   Input('date_range', 'end_date')],
                   [State('today-log-storage', 'children')])
 def get_today_log(speed_value, n_intervals, exp, channels, start_date, end_date, data):
-
+    print('today')
     if exp is not None:   
         if channels is not None:
             
@@ -621,7 +630,7 @@ def get_today_log(speed_value, n_intervals, exp, channels, start_date, end_date,
               Input('num-today-storage', 'data'),
               Input('interval-log-update', 'n_intervals')])
 def update_num_display_and_time(num_before, num_today, n_intervals):  
-
+    print('num')
     if num_before is None:
         num_1 = 0
     else: 
@@ -714,6 +723,7 @@ def update_num_display_and_time(num_before, num_today, n_intervals):
             Input('autoscale','n_clicks_timestamp')],
             [State('temperature-graph', 'figure'),])
 def update_graph(before_data, end_date, start_date, today_data, selected_dropdown_value, display_mode_value, click, figure):   
+    print('graph')
     layout_set = {'colorway': color_list,
                        'title':"The sensor channel monitor",
                        'height':600,
@@ -1054,6 +1064,11 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
 
 # Main
 if __name__ == '__main__':
+    if len(sys.argv)>=2:
+        path_lab = sys.argv[1]
+    else:
+        path_lab = None
+    print(path_lab)
     app.server.run(debug=False, threaded=True)
 
 # In Jupyter, debug = False 
