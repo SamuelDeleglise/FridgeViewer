@@ -298,6 +298,7 @@ def update_experiments(n_intervals, data):
               [Input('experiment', 'value')],
               [State('years-storage','data')])
 def update_years(exp, data):
+
     if exp is not None: 
         years_update = get_folder_names(all_folder_paths(path_lab + '\\' + exp + r'\data'))
         data = data or {}
@@ -346,11 +347,13 @@ def update_channels(exp, year, start_date, end_date, data):
     if exp is not None and year is not None: 
         path = path_lab + '\\' + exp + r'\data' + '\\' + year
         channels_update = set()
-
+       
         # get the all possible channels in the interval
         try:
             end_date = datetime.strptime(end_date,r'%Y-%m-%d')
             start_date = datetime.strptime(start_date, r'%Y-%m-%d')
+            print(end_date)
+            print(start_date)
         except TypeError as error:      
             print(error)
             print("Start day and end day have wrong filetype.")
@@ -360,7 +363,7 @@ def update_channels(exp, year, start_date, end_date, data):
         # search all channels in the date interval
         for date in date_list: 
             single_date_str = date.strftime(r'%y-%m-%d')
-            single_date_str = date.strftime(r'%Y-%m-%d')
+            
             print(single_date_str)
             
             try:
@@ -395,7 +398,7 @@ def update_channels(exp, year, start_date, end_date, data):
                [Input('experiment', 'value'),
                Input('year', 'value')])
 def update_date_range(exp, year):
-    print('bon')
+
     if exp is not None and year is not None: 
         path = path_lab + '\\' + exp + r'\data' + '\\' + year
         dates = all_folder_paths(path)
@@ -414,12 +417,12 @@ def update_date_range(exp, year):
                 [Input('date_range', 'start_date'),
                  Input('date_range', 'end_date')])
 def storage_mode(start_date, end_date):
-    print('alors')
+
     try:
         end_date = datetime.strptime(end_date,r'%Y-%m-%d')
         start_date = datetime.strptime(start_date, r'%Y-%m-%d')
     except TypeError as error:      
-        print(error)
+
         print("Start day and end day have wrong filetype.")
 
     # Select record mode
@@ -433,7 +436,7 @@ def storage_mode(start_date, end_date):
 @app.callback(Output('interval-log-update', 'interval'),
               [Input('dropdown-interval-control', 'value')])
 def update_interval_log_update(interval_rate):
-    print('update')
+
     if interval_rate == 'fast':
         return 500
 
@@ -462,7 +465,7 @@ def update_interval_log_update(interval_rate):
                   ])
 # @cache.memoize(timeout=timeout)  # in seconds
 def get_before_log(start_date, end_date, exp, data_channel, before, num_before):
-    print('before')
+
     if exp is not None:
     
         # get the path from the selection of experiment
@@ -506,7 +509,7 @@ def get_before_log(start_date, end_date, exp, data_channel, before, num_before):
         if datetime.today().date() in date_update:
             date_update.remove(datetime.today().date())
 
-        print('date_update is ',date_update)    
+
         # get the channel set from the channel storage
         if  data_channel is not None:
             
@@ -569,7 +572,7 @@ def get_before_log(start_date, end_date, exp, data_channel, before, num_before):
                   Input('date_range', 'end_date')],
                   [State('today-log-storage', 'children')])
 def get_today_log(speed_value, n_intervals, exp, channels, start_date, end_date, data):
-    print('today')
+
     if exp is not None:   
         if channels is not None:
             
@@ -630,7 +633,7 @@ def get_today_log(speed_value, n_intervals, exp, channels, start_date, end_date,
               Input('num-today-storage', 'data'),
               Input('interval-log-update', 'n_intervals')])
 def update_num_display_and_time(num_before, num_today, n_intervals):  
-    print('num')
+
     if num_before is None:
         num_1 = 0
     else: 
@@ -723,7 +726,7 @@ def update_num_display_and_time(num_before, num_today, n_intervals):
             Input('autoscale','n_clicks_timestamp')],
             [State('temperature-graph', 'figure'),])
 def update_graph(before_data, end_date, start_date, today_data, selected_dropdown_value, display_mode_value, click, figure):   
-    print('graph')
+
     layout_set = {'colorway': color_list,
                        'title':"The sensor channel monitor",
                        'height':600,
