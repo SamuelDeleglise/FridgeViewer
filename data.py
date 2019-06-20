@@ -5,6 +5,10 @@ import ntpath
 import re
 import numpy as np
 from datetime import timedelta, date, time, datetime
+
+import struct as st
+import time
+
 #########################################################
 # Settings for test
 
@@ -15,6 +19,32 @@ INITIAL_MONTH = datetime.today()
 TODAY_DATE  = datetime.today()
 TEST_MODE = False
 
+
+
+def follow(thefile):
+    thefile.seek(0,2)
+    while True:
+        line = thefile.readline()
+        if not line:
+            time.sleep(0.1)
+            continue
+        yield line
+
+
+def data_update(single_date, channel, path_data, dtype=r'.chan'):
+    """start_time and end_time require the type 'timedate'
+       channels requires the type 'list'
+       return a generator 
+    """
+    path = path_data + '\\' + single_date.strftime("%Y")+ '\\' + single_date.strftime(r"%y-%m-%d") + '\\'
+    
+    file_name = channel + ' ' + single_date.strftime(r"%y-%m-%d") + dtype
+
+    path_file = path + file_name
+    
+    f = open(path_file)
+    log = follow(f)
+    return log
 ########################################################
 def path_leaf(path):
     """ Remove / or \ from a path
@@ -121,6 +151,7 @@ def get_file_str(path):
     df = df.drop('Date', 1)
     return df
 
+
 def get_file_chan(path):
     """ The original type of file is CHAN, 
         This function returns a pandas format with frames 'Time', 'Value',
@@ -217,12 +248,4 @@ def get_1day_data_str(single_date, channels, path_data):
     return df_channel
 
 
-
-
-
-# # Test
-# path =r'C:\Users\YIFAN\Documents\GitHub\FridgeViewer\LOGS\Test\data\2019\19-06-04\He3 AB 19-06-04.chan'
-
-# a = get_file_chan(path) 
-# print(a)
 

@@ -55,8 +55,7 @@ initial_start_date = datetime(2019, 4, 13)
 path_data_auto = r'LOGS\DummyFridge\data'
 #path_lab = r'LOGS'
 #path_lab = r'Z:\ManipMembranes'
-path_lab = r'Z:\ManipMembranes'
-
+path_lab = None
 color_list = ["#5E0DAC", '#FF4F00', '#375CB1', '#FF7400', '#FFF400', '#FF0056']
 
 
@@ -84,7 +83,8 @@ app.layout = html.Div([
     html.Div([
         html.Div(id='before-log-storage', style={'display': 'none'}),
         html.Div(id='today-log-storage', style={'display': 'none'}),
-        
+        html.Div(id='today-update-storage', style={'display': 'none'}),
+
         dcc.Store(id='num-before-storage', storage_type='memory'),
         dcc.Store(id='num-today-storage', storage_type='memory'),
         
@@ -560,6 +560,7 @@ def get_before_log(start_date, end_date, exp, data_channel, before, num_before):
 
     else:         
         return no_update, no_update
+
 
 # Update today's json data 
 @app.callback([Output('today-log-storage', 'children'),
