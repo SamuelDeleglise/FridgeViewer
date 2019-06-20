@@ -870,16 +870,169 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
         
         
         
+#################################################################################       
+@app.callback([Output('temperature-graph', 'figure'),
+               Output('div-data-display', 'children')],
+            [Input('before-log-storage', 'children'),
+            Input('date_range', 'end_date'),
+            Input('date_range', 'start_date'),
+            Input('today-log-storage', 'children'),
+            Input('channels_dropdown', 'value'),
+            Input('display_mode','value'),
+            Input('autoscale','n_clicks_timestamp')],
+            [State('temperature-graph', 'figure'),])
+def update_graph(before_data, end_date, start_date, today_data, selected_dropdown_value, display_mode_value, click, figure):   
+
+    layout_set = {'colorway': color_list,
+                       'title':"The sensor channel monitor",
+                       'height':600,
+                        'xaxis':{"title":"Date",
+                            'rangeselector': {'buttons': list([
+                                {'count': 10, 'label': '10m', 'step': 'minute', 'stepmode': 'backward'},
+                                {'count': 1, 'label': '1h', 'step': 'hour', 'stepmode': 'backward'},
+                                {'count': 6, 'label': '6h', 'step': 'hour', 'stepmode': 'backward'},
+                                {'step': 'all'}])},
+                            'rangeslider': {'visible': True,'yaxis' :{"rangemode": "auto"} }, 'type': 'date'},
+                        'margin':{'l':60, 'b': 40, 't': 80, 'r': 10},
+                        'yaxis' : {"title":"Value",
+                                },
+                        'uirevision': click,  
+            }
+    start_date = datetime.strptime(start_date, r'%Y-%m-%d')
+    end_date = datetime.strptime(end_date, r'%Y-%m-%d')
+    date_list = datelist(start_date, end_date)
+
+    
+    if end_date.date() == datetime.today().date(): 
+        # to keep same format for single channel or mutiple channels
+        if not isinstance(selected_dropdown_value, (list,)):
+            selected_dropdown_value = [selected_dropdown_value]
+        
+        if today_data is not None:
+            trace = []
+            dis = []
+            data_df = pd.DataFrame()
+            
+            if before_data is not None:
+                before_data.update(today_data)
+            else:
+                before_data = today_data
+            
+            date_log_list = list(before_data.keys())
+            if 'exp_before' in date_log_list:
+                date_log_list.remove('exp_before')
+            if 'exp_today' in date_log_list:
+                date_log_list.remove('exp_today')
+            
+            data_df = pd.DataFrame()
+            for date in date_list:
+                date_str = date.strftime(r'%Y-%m-%d')
+                
+                if date_str in date_log_list:
+                    temp_df = pd.DataFrame()
+                    temp_df = pd.read_json(before_data[date_str], orient='split')
+                    data_df = pd.concat([data_df, temp_df], axis=0, sort=True) 
+            
+            if selected_dropdown_value is not None or selected_dropdown_value:
+                for channel in selected_dropdown_value:
+                    channel_time = 'Time_'+ channel
+                    
+                    if data_df[channel_time].iloc[0] == str:                 
+                        data_df[channel_time] = pd.to_datetime(data_df[channel_time], format=r'%Y%m%d %H:%M:%S')
+                    
+                    trace.append(go.Scatter(x=data_df[channel_time].dropna(), y=data_df[channel].dropna(),mode='lines',
+                        opacity=0.7,name=channel, textposition='bottom center'))
+                        
+                    dis.append(html.H6('{0} : {1}'.format(channel, data_df[channel].iloc[-1]), style={ 'margin-top': '3px'}))
+                    
+
+                # overlap display
+                if display_mode_value == 'overlap':
+                    figure = {'data': trace, 'layout': layout_set}
+            
+                # separate dislay 
+                elif display_mode_value == 'separate':
+                    num =  len(selected_dropdown_value)
+                    
+                    figure = tools.make_subplots(rows=num, cols=1)
+                    for index, (tra, chan) in enumerate(zip(trace, selected_dropdown_value)):     
+                        figure.append_trace(tra, index+1, 1)
+                        figure['layout']['xaxis{}'.format(index+1)].update(title='The channel of {0}'.format(chan)) 
+            
+                    figure['layout'].update(height=500*num) 
+                
+                return figure, dis
+            else: no_update, no_update
+        else:
+            return no_update, no_update
+    else:
+        
+        # to keep same format for single channel or mutiple channels
+        if not isinstance(selected_dropdown_value, (list,)):
+            selected_dropdown_value = [selected_dropdown_value]
+        
+        if before_data is not None:
+            trace = []
+            dis = []
+            
+            date_log_list = list(before_data.keys())
+            if 'exp_before' in date_log_list:
+                date_log_list.remove('exp_before')
+            if 'exp_today' in date_log_list:
+                date_log_list.remove('exp_today')
+                   
+            data_df = pd.DataFrame()
+            for date in date_list:
+                date_str = date.strftime(r'%Y-%m-%d')
+                
+                if date_str in date_log_list:
+                    temp_df = pd.DataFrame()
+                    temp_df = pd.read_json(before_data[date_str], orient='split')
+                    data_df = pd.concat([data_df, temp_df], axis=0, sort=True) 
+
+            if selected_dropdown_value is not None or selected_dropdown_value:
+                for channel in selected_dropdown_value:
+                    channel_time = 'Time_'+ channel
+                    if data_df[channel_time].iloc[0] == str:                 
+                        data_df[channel_time] = pd.to_datetime(data_df[channel_time], format=r'%Y%m%d %H:%M:%S')
+
+                    trace.append(go.Scatter(x=data_df[channel_time].dropna(), y=data_df[channel].dropna(),mode='lines',
+                        opacity=0.7,name=channel, textposition='bottom center'))
+                        
+                    dis.append(html.H6('{0} : {1}'.format(channel, data_df[channel].iloc[-1]), style={ 'margin-top': '3px'}))
+                    
+
+                # overlap display
+                if display_mode_value == 'overlap':
+                    figure = {'data': trace, 'layout': layout_set}
+            
+                # separate dislay 
+                elif display_mode_value == 'separate':
+                    num =  len(selected_dropdown_value)
+                    
+                    figure = tools.make_subplots(rows=num, cols=1)
+                    for index, (tra, chan) in enumerate(zip(trace, selected_dropdown_value)):     
+                        figure.append_trace(tra, index+1, 1)
+                        figure['layout']['xaxis{}'.format(index+1)].update(title='The channel of {0}'.format(chan)) 
+            
+                    figure['layout'].update(height=500*num) 
+            
+                return figure, no_update
+            else: 
+                return no_update, no_update
+        else:
+            return no_update, no_update
+        
+        
+        
+              
         
         
         
         
         
         
-        
-        
-        
-        
+#################################################################################3       
         # df = pd.DataFrame()
         # if before_data is not None:
         #     for key, value in before_data.items():
