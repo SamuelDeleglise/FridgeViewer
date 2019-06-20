@@ -955,6 +955,7 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
                     num =  len(selected_dropdown_value)
                     
                     figure = tools.make_subplots(rows=num, cols=1)
+                    figure['layout'].update(uirevision=click) 
                     for index, (tra, chan) in enumerate(zip(trace, selected_dropdown_value)):     
                         figure.append_trace(tra, index+1, 1)
                         figure['layout']['xaxis{}'.format(index+1)].update(title='The channel of {0}'.format(chan)) 
@@ -1011,6 +1012,8 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
                     num =  len(selected_dropdown_value)
                     
                     figure = tools.make_subplots(rows=num, cols=1)
+                    figure['layout'].update(uirevision=click) 
+              
                     for index, (tra, chan) in enumerate(zip(trace, selected_dropdown_value)):     
                         figure.append_trace(tra, index+1, 1)
                         figure['layout']['xaxis{}'.format(index+1)].update(title='The channel of {0}'.format(chan)) 
