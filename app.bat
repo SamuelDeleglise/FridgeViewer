@@ -1,1 +1,1 @@
-python -i C:\Users\YIFAN\Documents\GitHub\FridgeViewer\app.py "C:\Users\YIFAN\Documents\GitHub\LOGS"
+python -i C:\Users\ManipMembraes\Documents\GitHub\FridgeViewer\app.py "Z:\ManipMembranes\Data Edouard\Datalogger Values"

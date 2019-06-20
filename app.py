@@ -647,74 +647,6 @@ def update_num_display_and_time(num_before, num_today, n_intervals):
     total_num = num_1 + num_2
     return html.H2('{0}'.format(total_num), style={ 'margin-top': '3px'})
 
-# # Callback the graph
-# @app.callback(Output('temperature-graph', 'figure'),
-#             [Input('before-log-storage', 'children'),
-#             Input('channels_dropdown', 'value'),
-#             Input('display_mode','value'),
-#             Input('autoscale','n_clicks_timestamp')],)
-# def update_graph(before, selected_dropdown_value, display_mode_value, click):
-#     layout_set = {'colorway': color_list,
-#                        'title':"The sensor channel monitor",
-#                        'height':600,
-#                         'xaxis':{"title":"Date",
-#                             'rangeselector': {'buttons': list([
-#                                 {'count': 10, 'label': '10m', 'step': 'minute', 'stepmode': 'backward'},
-#                                 {'count': 1, 'label': '1h', 'step': 'hour', 'stepmode': 'backward'},
-#                                 {'count': 6, 'label': '6h', 'step': 'hour', 'stepmode': 'backward'},
-#                                 {'step': 'all'}])},
-#                             'rangeslider': {'visible': True,'yaxis' :{"rangemode": "auto"} }, 'type': 'date'},
-#                         'margin':{'l':60, 'b': 40, 't': 80, 'r': 10},
-#                         'yaxis' : {"title":"Value",
-#                                 },
-#                         'uirevision': click,  
-#             }
-
-#     df = pd.DataFrame()
-#     if before is not None:
-#         for key, value in before.items():
-#             before_df = pd.read_json(value, orient='split')
-#             df = pd.concat([df, before_df], axis=0, sort=True)
-    
-#         # create empty trace     
-#         trace = []
-#         # to keep same format for single channel or mutiple channels
-#         if not isinstance(selected_dropdown_value, (list,)):
-#             selected_dropdown_value = [selected_dropdown_value]
-        
-#         for channel in selected_dropdown_value:
-#             key_time = 'Time_'+ channel
-#             key = channel
-#             if key in df.keys() and key_time in df.keys():
-#                 temp_df = pd.concat([df[key_time], df[key]], axis=1)
-#                 temp_df[key_time] = pd.to_datetime(temp_df[key_time], format=r'%Y%m%d %H:%M:%S')
-                
-#                 # eliminate the NaN elements
-#                 temp_df.dropna()
-#                 trace.append(go.Scatter(x=temp_df[key_time], y=temp_df[key],mode='lines',
-#                 opacity=0.7,name=channel, textposition='bottom center'))
-#             else: 
-#                 print('There is no trace required')
-
-#         data = trace
-#         # overlap display
-#         if display_mode_value == 'overlap':
-#             figure = {'data': data, 'layout': layout_set}
-        
-#         # separate dislay 
-#         elif display_mode_value == 'separate':
-#             num =  len(selected_dropdown_value)
-#             figure = tools.make_subplots(rows=num, cols=1)
-            
-#             for index, (tra, chan) in enumerate(zip(trace, selected_dropdown_value)):     
-#                 figure.append_trace(tra, index+1, 1)
-#                 figure['layout']['xaxis{}'.format(index+1)].update(title='The channel of {0}'.format(chan)) 
-            
-#             figure['layout'].update(height=500*num)  
-
-#         return figure       
-#     else:
-#         return no_update 
 
 @app.callback([Output('temperature-graph', 'figure'),
                Output('div-data-display', 'children')],
@@ -800,6 +732,7 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
                     num =  len(selected_dropdown_value)
                     
                     figure = tools.make_subplots(rows=num, cols=1)
+					figure['layout'].update(uirevision=click)
                     for index, (tra, chan) in enumerate(zip(trace, selected_dropdown_value)):     
                         figure.append_trace(tra, index+1, 1)
                         figure['layout']['xaxis{}'.format(index+1)].update(title='The channel of {0}'.format(chan)) 
@@ -856,6 +789,7 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
                     num =  len(selected_dropdown_value)
                     
                     figure = tools.make_subplots(rows=num, cols=1)
+					figure['layout'].update(uirevision=click)
                     for index, (tra, chan) in enumerate(zip(trace, selected_dropdown_value)):     
                         figure.append_trace(tra, index+1, 1)
                         figure['layout']['xaxis{}'.format(index+1)].update(title='The channel of {0}'.format(chan)) 
