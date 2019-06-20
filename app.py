@@ -19,7 +19,7 @@ import plotly.graph_objs as go
 from plotly import tools
 import numpy as np
 import sys
-
+import time
 from data import *
 
 app = dash.Dash(__name__)
@@ -383,7 +383,7 @@ def update_channels(exp, year, start_date, end_date, data):
         data = data or {}
         data['channels'] = channels_update
         if channels_update:
-            return [{'label': i, 'value': i} for i in channels_update],channels_update[0], data
+            return [{'label': i, 'value': i} for i in channels_update],channels_update, data
         else:
             return no_update, no_update, no_update
     else:
@@ -648,6 +648,8 @@ def update_num_display_and_time(num_before, num_today, n_intervals):
     return html.H2('{0}'.format(total_num), style={ 'margin-top': '3px'})
 
 
+n_clicks_autoscale = 0
+
 @app.callback([Output('temperature-graph', 'figure'),
                Output('div-data-display', 'children')],
             [Input('before-log-storage', 'children'),
@@ -656,24 +658,62 @@ def update_num_display_and_time(num_before, num_today, n_intervals):
             Input('today-log-storage', 'children'),
             Input('channels_dropdown', 'value'),
             Input('display_mode','value'),
-            Input('autoscale','n_clicks_timestamp')],
-            [State('temperature-graph', 'figure'),])
-def update_graph(before_data, end_date, start_date, today_data, selected_dropdown_value, display_mode_value, click, figure):   
+            Input('autoscale','n_clicks')],
+            [State('temperature-graph', 'figure'),
+             State('temperature-graph', 'relayoutData')])
+def update_graph(before_data, end_date, start_date, today_data, selected_dropdown_value, display_mode_value, click, figure, relayout):
+    global n_clicks_autoscale
+    if click is None:
+        click = 0
+    if click>n_clicks_autoscale:
+        do_autoscale = True
+        print("autoscale was clicked")
+        n_clicks_autoscale = click
+    else:
+        do_autoscale = False
+
+    if figure is not None:
+                #print(1000*datetime.strptime(figure["data"][0]['x'][-1],"%Y-%m-%d %H:%M:%S").timestamp())
+                # figure["layout"]["xaxis"]["range"][-1]< 1000*datetime.strptime(figure["data"][0]['x'][-1],"%Y-%m-%d %H:%M:%S").timestamp():
+        if relayout:
+            if 'xaxis.range[1]' in relayout:
+                print("===========================")
+                print(relayout['xaxis.range[1]'])
+                print(figure["data"][0]['x'][-1])
+                # if float(relayout['xaxis.range[1]']) > 1000*(datetime.strptime(figure["data"][0]['x'][-1],"%Y-%m-%d %H:%M:%S").timestamp()-400):
+                figure['layout']['xaxis']['range'] = [relayout['xaxis.range[0]'],1000*(datetime.now().timestamp()+100)]
+                print("----------------------------")
+                print(relayout['xaxis.range[1]'])
+
+                # print(relayout['xaxis.rangeslider'])
+                # if 'xaxis.rangeslider.range[1]' in relayout:
+                #     print("===========================")
+                #     print(relayout['xaxis.rangeslider.range[1]'])
+                # figure['layout']['xaxis']['range'] = [
+                #     relayout['xaxis.range[0]'],
+                #     1000*(datetime.now().timestamp()+200)]
+                # print("----------------------------")
+                # print(relayout['xaxis.range[1]'])
 
     layout_set = {'colorway': color_list,
                        'title':"The sensor channel monitor",
                        'height':600,
                         'xaxis':{"title":"Date",
-                            'rangeselector': {'buttons': list([
-                                {'count': 10, 'label': '10m', 'step': 'minute', 'stepmode': 'backward'},
+                                 #'maxrange':1000*(datetime.now().timestamp()),
+                                 #'range' : [1000*(datetime.now().timestamp()-600),1000*(datetime.now().timestamp())],
+                                'rangeselector': {'buttons': list([
+                                {'count': 10, 'label': '10m', 'step': 'minute', 'stepmode': 'forward'},
                                 {'count': 1, 'label': '1h', 'step': 'hour', 'stepmode': 'backward'},
                                 {'count': 6, 'label': '6h', 'step': 'hour', 'stepmode': 'backward'},
+                                {'count': 1, 'label': '1 day', 'step': 'day', 'stepmode': 'backward'},
+                                {'count': 3, 'label': '3 days', 'step': 'day', 'stepmode': 'backward'},
+                                {'count': 7, 'label': '1 week', 'step': 'day', 'stepmode': 'backward'},
                                 {'step': 'all'}])},
                             'rangeslider': {'visible': True,'yaxis' :{"rangemode": "auto"} }, 'type': 'date'},
                         'margin':{'l':60, 'b': 40, 't': 80, 'r': 10},
                         'yaxis' : {"title":"Value",
                                 },
-                        'uirevision': click,  
+                        'uirevision' :not do_autoscale,
             }
     start_date = datetime.strptime(start_date, r'%Y-%m-%d')
     end_date = datetime.strptime(end_date, r'%Y-%m-%d')
@@ -688,7 +728,6 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
         if today_data is not None:
             trace = []
             dis = []
-            data_df = pd.DataFrame()
             
             if before_data is not None:
                 before_data.update(today_data)
@@ -732,13 +771,13 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
                     num =  len(selected_dropdown_value)
                     
                     figure = tools.make_subplots(rows=num, cols=1)
-					figure['layout'].update(uirevision=click)
+                    figure['layout'].update(uirevision=click)
                     for index, (tra, chan) in enumerate(zip(trace, selected_dropdown_value)):     
                         figure.append_trace(tra, index+1, 1)
                         figure['layout']['xaxis{}'.format(index+1)].update(title='The channel of {0}'.format(chan)) 
             
                     figure['layout'].update(height=500*num) 
-                
+
                 return figure, dis
             else: no_update, no_update
         else:
@@ -789,13 +828,13 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
                     num =  len(selected_dropdown_value)
                     
                     figure = tools.make_subplots(rows=num, cols=1)
-					figure['layout'].update(uirevision=click)
+                    figure['layout'].update(uirevision=click)
                     for index, (tra, chan) in enumerate(zip(trace, selected_dropdown_value)):     
                         figure.append_trace(tra, index+1, 1)
                         figure['layout']['xaxis{}'.format(index+1)].update(title='The channel of {0}'.format(chan)) 
             
                     figure['layout'].update(height=500*num) 
-            
+
                 return figure, no_update
             else: 
                 return no_update, no_update
