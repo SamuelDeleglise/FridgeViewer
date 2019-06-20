@@ -1,0 +1,1 @@
+python -i C:\Users\YIFAN\Documents\GitHub\datalogger\run_datalogger.py "C:\Users\YIFAN\Documents\GitHub\LOGS\Interference"
