@@ -672,37 +672,13 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
     else:
         do_autoscale = False
 
-    if figure is not None:
-                #print(1000*datetime.strptime(figure["data"][0]['x'][-1],"%Y-%m-%d %H:%M:%S").timestamp())
-                # figure["layout"]["xaxis"]["range"][-1]< 1000*datetime.strptime(figure["data"][0]['x'][-1],"%Y-%m-%d %H:%M:%S").timestamp():
-        if relayout:
-            if 'xaxis.range[1]' in relayout:
-                print("===========================")
-                print(relayout['xaxis.range[1]'])
-                print(figure["data"][0]['x'][-1])
-                # if float(relayout['xaxis.range[1]']) > 1000*(datetime.strptime(figure["data"][0]['x'][-1],"%Y-%m-%d %H:%M:%S").timestamp()-400):
-                figure['layout']['xaxis']['range'] = [relayout['xaxis.range[0]'],1000*(datetime.now().timestamp()+100)]
-                print("----------------------------")
-                print(relayout['xaxis.range[1]'])
-
-                # print(relayout['xaxis.rangeslider'])
-                # if 'xaxis.rangeslider.range[1]' in relayout:
-                #     print("===========================")
-                #     print(relayout['xaxis.rangeslider.range[1]'])
-                # figure['layout']['xaxis']['range'] = [
-                #     relayout['xaxis.range[0]'],
-                #     1000*(datetime.now().timestamp()+200)]
-                # print("----------------------------")
-                # print(relayout['xaxis.range[1]'])
 
     layout_set = {'colorway': color_list,
                        'title':"The sensor channel monitor",
                        'height':600,
                         'xaxis':{"title":"Date",
-                                 #'maxrange':1000*(datetime.now().timestamp()),
-                                 #'range' : [1000*(datetime.now().timestamp()-600),1000*(datetime.now().timestamp())],
                                 'rangeselector': {'buttons': list([
-                                {'count': 10, 'label': '10m', 'step': 'minute', 'stepmode': 'forward'},
+                                {'count': 10, 'label': '10m', 'step': 'minute', 'stepmode': 'backward'},
                                 {'count': 1, 'label': '1h', 'step': 'hour', 'stepmode': 'backward'},
                                 {'count': 6, 'label': '6h', 'step': 'hour', 'stepmode': 'backward'},
                                 {'count': 1, 'label': '1 day', 'step': 'day', 'stepmode': 'backward'},
@@ -713,7 +689,6 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
                         'margin':{'l':60, 'b': 40, 't': 80, 'r': 10},
                         'yaxis' : {"title":"Value",
                                 },
-                        'uirevision' :not do_autoscale,
             }
     start_date = datetime.strptime(start_date, r'%Y-%m-%d')
     end_date = datetime.strptime(end_date, r'%Y-%m-%d')
@@ -765,19 +740,41 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
                 # overlap display
                 if display_mode_value == 'overlap':
                     figure = {'data': trace, 'layout': layout_set}
-            
+                    figure['layout'].update(uirevision= click)  
                 # separate dislay 
                 elif display_mode_value == 'separate':
                     num =  len(selected_dropdown_value)
                     
                     figure = tools.make_subplots(rows=num, cols=1)
-                    figure['layout'].update(uirevision=click)
+    
                     for index, (tra, chan) in enumerate(zip(trace, selected_dropdown_value)):     
                         figure.append_trace(tra, index+1, 1)
                         figure['layout']['xaxis{}'.format(index+1)].update(title='The channel of {0}'.format(chan)) 
-            
+                    figure['layout'].update(uirevision= click)  
                     figure['layout'].update(height=500*num) 
-
+                if figure is not None:             
+                    if relayout is not None:
+                        if 'xaxis.range[1]' in relayout:
+                            print("===========================")
+                            try: 
+                                relayout_maxrange = datetime.strptime(relayout['xaxis.range[1]'],"%Y-%m-%d %H:%M:%S").timestamp()
+                            except: 
+                                relayout_maxrange = datetime.strptime(relayout['xaxis.range[1]'],"%Y-%m-%d %H:%M:%S.%f").timestamp()
+                            try: 
+                                threshold = (datetime.strptime(figure["data"][0]['x'][-1],"%Y-%m-%d %H:%M:%S").timestamp()-100)
+                            except:
+                                threshold = (datetime.strptime(figure["data"][0]['x'][-1],"%Y-%m-%d %H:%M:%S.%f").timestamp()-100)
+                            # print(relayout['xaxis.range[0]'])
+                            # print(relayout['xaxis.range[1]'])
+                            # print(figure["data"][0]['x'][-1])
+                            
+                            if do_autoscale is False: 
+                                # when the reset of maximal range exceeds a threshold value, the maximal range is assigned as maxtime
+                                if relayout_maxrange > threshold:
+                                    maxtime = (datetime.now()+timedelta(seconds = 120)).strftime("%Y-%m-%d %H:%M:%S")
+                                    
+                                    figure['layout']['xaxis']['range'] = [relayout['xaxis.range[0]'], maxtime]
+    
                 return figure, dis
             else: no_update, no_update
         else:
@@ -828,6 +825,7 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
                     num =  len(selected_dropdown_value)
                     
                     figure = tools.make_subplots(rows=num, cols=1)
+                    
                     figure['layout'].update(uirevision=click)
                     for index, (tra, chan) in enumerate(zip(trace, selected_dropdown_value)):     
                         figure.append_trace(tra, index+1, 1)
