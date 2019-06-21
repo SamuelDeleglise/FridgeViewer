@@ -662,6 +662,7 @@ n_clicks_autoscale = 0
             [State('temperature-graph', 'figure'),
              State('temperature-graph', 'relayoutData')])
 def update_graph(before_data, end_date, start_date, today_data, selected_dropdown_value, display_mode_value, click, figure, relayout):
+
     global n_clicks_autoscale
     if click is None:
         click = 0
@@ -723,25 +724,42 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
                     temp_df = pd.DataFrame()
                     temp_df = pd.read_json(before_data[date_str], orient='split')
                     data_df = pd.concat([data_df, temp_df], axis=0) 
-            
+
+
             if selected_dropdown_value is not None or selected_dropdown_value:
+
+                maxtime_list = []
+                mintime_list = []
+
+
                 for channel in selected_dropdown_value:
                     channel_time = 'Time_'+ channel
-                    
-                    if data_df[channel_time].iloc[0] == str:                 
-                        data_df[channel_time] = pd.to_datetime(data_df[channel_time], format=r'%Y%m%d %H:%M:%S')
-                    
-                    trace.append(go.Scatter(x=data_df[channel_time].dropna(), y=data_df[channel].dropna(),mode='lines',
-                        opacity=0.7,name=channel, textposition='bottom center'))
-                        
-                    dis.append(html.H6('{0} : {1}'.format(channel, data_df[channel].iloc[-1]), style={ 'margin-top': '3px'}))
-                    
+
+                    # drop all NaN
+                    temp = pd.DataFrame()
+                    temp[channel] = data_df[channel].dropna()
+                    temp[channel_time] = data_df[channel_time].dropna()
+
+                    maxtime_list.append(temp[channel_time].iloc[-1])
+                    mintime_list.append(temp[channel_time].iloc[0])
+
+
+                    trace.append(go.Scatter(x=temp[channel_time], y=temp[channel],mode='lines', opacity=0.7,name=channel, textposition='bottom center'))
+                    dis.append(html.H6('{0} : {1}'.format(channel, temp[channel].iloc[-1]), style={ 'margin-top': '3px'}))
+
+                # the time of last data
+                if maxtime_list:
+                    maxtime_list = pd.to_datetime(maxtime_list, format=r'%Y%m%d %H:%M:%S')
+                    maxtime = max(maxtime_list)
+                if mintime_list:
+                    mintime_list = pd.to_datetime(maxtime_list, format=r'%Y%m%d %H:%M:%S')
+                    mintime = max(maxtime_list)
 
                 # overlap display
                 if display_mode_value == 'overlap':
                     figure = {'data': trace, 'layout': layout_set}
-                    figure['layout'].update(uirevision= click)  
-                # separate dislay 
+
+                # separate dislay
                 elif display_mode_value == 'separate':
                     num =  len(selected_dropdown_value)
                     
@@ -750,31 +768,35 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
                     for index, (tra, chan) in enumerate(zip(trace, selected_dropdown_value)):     
                         figure.append_trace(tra, index+1, 1)
                         figure['layout']['xaxis{}'.format(index+1)].update(title='The channel of {0}'.format(chan)) 
-                    figure['layout'].update(uirevision= click)  
+
+                    figure['layout'].update(uirevision= click)
                     figure['layout'].update(height=500*num) 
-                if figure is not None:             
+
+                if figure is not None:
                     if relayout is not None:
                         if 'xaxis.range[1]' in relayout:
-                            print("===========================")
-                            try: 
+
+                            try:
                                 relayout_maxrange = datetime.strptime(relayout['xaxis.range[1]'],"%Y-%m-%d %H:%M:%S").timestamp()
-                            except: 
-                                relayout_maxrange = datetime.strptime(relayout['xaxis.range[1]'],"%Y-%m-%d %H:%M:%S.%f").timestamp()
-                            try: 
-                                threshold = (datetime.strptime(figure["data"][0]['x'][-1],"%Y-%m-%d %H:%M:%S").timestamp()-100)
                             except:
-                                threshold = (datetime.strptime(figure["data"][0]['x'][-1],"%Y-%m-%d %H:%M:%S.%f").timestamp()-100)
+                                relayout_maxrange = datetime.strptime(relayout['xaxis.range[1]'],"%Y-%m-%d %H:%M:%S.%f").timestamp()
+
+                            threshold = (maxtime.timestamp()-100)
+
                             # print(relayout['xaxis.range[0]'])
                             # print(relayout['xaxis.range[1]'])
                             # print(figure["data"][0]['x'][-1])
-                            
-                            if do_autoscale is False: 
-                                # when the reset of maximal range exceeds a threshold value, the maximal range is assigned as maxtime
-                                if relayout_maxrange > threshold:
-                                    maxtime = (datetime.now()+timedelta(seconds = 120)).strftime("%Y-%m-%d %H:%M:%S")
-                                    
-                                    figure['layout']['xaxis']['range'] = [relayout['xaxis.range[0]'], maxtime]
-    
+
+                            # when the reset of maximal range exceeds a threshold value, the maximal range is assigned as maxtime
+                            if relayout_maxrange > threshold:
+                                maxtime = (maxtime + timedelta(seconds = 120)).strftime("%Y-%m-%d %H:%M:%S")
+
+                                the_range = [relayout['xaxis.range[0]'], maxtime]
+                                figure['layout']['xaxis']['range'] = the_range
+                            else:
+                                figure['layout']['xaxis']['range'] = [relayout['xaxis.range[0]'], relayout['xaxis.range[1]']]
+
+
                 return figure, dis
             else: no_update, no_update
         else:
@@ -802,28 +824,37 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
                 if date_str in date_log_list:
                     temp_df = pd.DataFrame()
                     temp_df = pd.read_json(before_data[date_str], orient='split')
-                    data_df = pd.concat([data_df, temp_df], axis=0, sort=True) 
+                    data_df = pd.concat([data_df, temp_df], axis=0)
 
             if selected_dropdown_value is not None or selected_dropdown_value:
                 for channel in selected_dropdown_value:
                     channel_time = 'Time_'+ channel
-                    if data_df[channel_time].iloc[0] == str:                 
-                        data_df[channel_time] = pd.to_datetime(data_df[channel_time], format=r'%Y%m%d %H:%M:%S')
 
-                    trace.append(go.Scatter(x=data_df[channel_time].dropna(), y=data_df[channel].dropna(),mode='lines',
-                        opacity=0.7,name=channel, textposition='bottom center'))
-                        
-                    dis.append(html.H6('{0} : {1}'.format(channel, data_df[channel].iloc[-1]), style={ 'margin-top': '3px'}))
-                    
+                    if data_df[channel_time].iloc[0] == str:
+
+                        # drop all NaN
+                        temp = pd.DataFrame()
+                        temp[channel] = data_df[channel].dropna()
+                        temp[channel_time] = data_df[channel_time].dropna()
+
+
+                    trace.append(
+                        go.Scatter(x=temp[channel_time], y=temp[channel], mode='lines', opacity=0.7, name=channel,
+                                   textposition='bottom center'))
+
+                    dis.append(
+                        html.H6('{0} : {1}'.format(channel, temp[channel].iloc[-1]), style={'margin-top': '3px'}))
+
 
                 # overlap display
                 if display_mode_value == 'overlap':
                     figure = {'data': trace, 'layout': layout_set}
-            
+                    figure['layout'].update(uirevision= click)
+
                 # separate dislay 
                 elif display_mode_value == 'separate':
+
                     num =  len(selected_dropdown_value)
-                    
                     figure = tools.make_subplots(rows=num, cols=1)
                     
                     figure['layout'].update(uirevision=click)
@@ -831,7 +862,8 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
                         figure.append_trace(tra, index+1, 1)
                         figure['layout']['xaxis{}'.format(index+1)].update(title='The channel of {0}'.format(chan)) 
             
-                    figure['layout'].update(height=500*num) 
+                    figure['layout'].update(height=500*num)
+                    figure['layout'].update(uirevision= click)
 
                 return figure, no_update
             else: 

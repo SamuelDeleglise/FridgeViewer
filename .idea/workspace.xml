@@ -2,7 +2,6 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="fad48f44-d8c2-45fb-86cd-4d7d31e096d7" name="Default" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/encodings.xml" afterPath="" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
       <change beforePath="$PROJECT_DIR$/app.py" afterPath="$PROJECT_DIR$/app.py" />
     </list>
@@ -18,8 +17,8 @@
       <file leaf-file-name="app.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/app.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="1165">
-              <caret line="761" column="83" lean-forward="true" selection-start-line="761" selection-start-column="83" selection-end-line="761" selection-end-column="83" />
+            <state relative-caret-position="391">
+              <caret line="788" column="0" lean-forward="true" selection-start-line="788" selection-start-column="0" selection-end-line="788" selection-end-column="0" />
               <folding>
                 <element signature="e#36#45#0" expanded="true" />
               </folding>
@@ -47,6 +46,7 @@
       <find>%m/%d</find>
       <find>%m</find>
       <find>%</find>
+      <find>dataFrame</find>
     </findStrings>
   </component>
   <component name="Git.Settings">
@@ -60,8 +60,8 @@
     </option>
   </component>
   <component name="ProjectFrameBounds">
-    <option name="x" value="494" />
-    <option name="y" value="67" />
+    <option name="x" value="579" />
+    <option name="y" value="202" />
     <option name="width" value="1058" />
     <option name="height" value="803" />
   </component>
@@ -125,7 +125,7 @@
     <servers />
   </component>
   <component name="ToolWindowManager">
-    <frame x="494" y="67" width="1058" height="803" extended-state="0" />
+    <frame x="579" y="202" width="1058" height="803" extended-state="0" />
     <editor active="true" />
     <layout>
       <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.0" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
@@ -159,8 +159,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/app.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1165">
-          <caret line="761" column="83" lean-forward="true" selection-start-line="761" selection-start-column="83" selection-end-line="761" selection-end-column="83" />
+        <state relative-caret-position="391">
+          <caret line="788" column="0" lean-forward="true" selection-start-line="788" selection-start-column="0" selection-end-line="788" selection-end-column="0" />
           <folding>
             <element signature="e#36#45#0" expanded="true" />
           </folding>
