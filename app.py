@@ -781,6 +781,12 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
                             except:
                                 relayout_maxrange = datetime.strptime(relayout['xaxis.range[1]'],"%Y-%m-%d %H:%M:%S.%f").timestamp()
 
+                            if 'range' in figure['layout']['xaxis']:
+                                try:
+                                    now_maxrange =  datetime.strptime(figure['layout']['xaxis']['range'][1],"%Y-%m-%d %H:%M:%S")
+                                except:
+                                    now_maxrange =  datetime.strptime(figure['layout']['xaxis']['range'][1],"%Y-%m-%d %H:%M:%S%f")
+
                             threshold = (maxtime.timestamp()-100)
 
                             # print(relayout['xaxis.range[0]'])
@@ -788,10 +794,10 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
                             # print(figure["data"][0]['x'][-1])
 
                             # when the reset of maximal range exceeds a threshold value, the maximal range is assigned as maxtime
-                            if relayout_maxrange > threshold:
-                                maxtime = (maxtime + timedelta(seconds = 120)).strftime("%Y-%m-%d %H:%M:%S")
+                            if relayout_maxrange > threshold or now_maxrange > maxtime:
+                                maxtime_set = (maxtime + timedelta(seconds = 120)).strftime("%Y-%m-%d %H:%M:%S")
 
-                                the_range = [relayout['xaxis.range[0]'], maxtime]
+                                the_range = [relayout['xaxis.range[0]'], maxtime_set]
                                 figure['layout']['xaxis']['range'] = the_range
                             else:
                                 figure['layout']['xaxis']['range'] = [relayout['xaxis.range[0]'], relayout['xaxis.range[1]']]
