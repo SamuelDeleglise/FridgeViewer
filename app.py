@@ -647,9 +647,22 @@ def update_num_display_and_time(num_before, num_today, n_intervals):
     total_num = num_1 + num_2
     return html.H2('{0}'.format(total_num), style={ 'margin-top': '3px'})
 
-
 n_clicks_autoscale = 0
+@app.callback([Output('temperature-graph', 'relayoutData')],
+               [Input('autoscale','n_clicks')])
+def autoscale(click):
+    global n_clicks_autoscale
+    if click is None:
+        click = 0
+    if click>n_clicks_autoscale:
+        do_autoscale = True
+        print("autoscale was clicked")
+        n_clicks_autoscale = click
+    else:
+        do_autoscale = False
 
+    if do_autoscale:
+    else: no_update
 @app.callback([Output('temperature-graph', 'figure'),
                Output('div-data-display', 'children')],
             [Input('before-log-storage', 'children'),
@@ -662,16 +675,6 @@ n_clicks_autoscale = 0
             [State('temperature-graph', 'figure'),
              State('temperature-graph', 'relayoutData')])
 def update_graph(before_data, end_date, start_date, today_data, selected_dropdown_value, display_mode_value, click, figure, relayout):
-
-    global n_clicks_autoscale
-    if click is None:
-        click = 0
-    if click>n_clicks_autoscale:
-        do_autoscale = True
-        print("autoscale was clicked")
-        n_clicks_autoscale = click
-    else:
-        do_autoscale = False
 
 
     layout_set = {'colorway': color_list,
@@ -773,34 +776,65 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
                     figure['layout'].update(height=500*num) 
 
                 if figure is not None:
+                    print('figure is not None')
                     if relayout is not None:
-                        if 'xaxis.range[1]' in relayout:
+                        print('relayout is not None')
+                        print(relayout)
+                        if 'xaxis.range[1]' in relayout or 'xaxis.range' in relayout:
+                            print('xaxis.range is not None')
 
                             try:
                                 relayout_maxrange = datetime.strptime(relayout['xaxis.range[1]'],"%Y-%m-%d %H:%M:%S").timestamp()
                             except:
-                                relayout_maxrange = datetime.strptime(relayout['xaxis.range[1]'],"%Y-%m-%d %H:%M:%S.%f").timestamp()
+                                try:
+                                    relayout_maxrange = datetime.strptime(relayout['xaxis.range[1]'],"%Y-%m-%d %H:%M:%S.%f").timestamp()
+                                except:
+                                    try:
+                                        relayout_maxrange = datetime.strptime(relayout['xaxis.range'][1],"%Y-%m-%d %H:%M:%S").timestamp()
+                                    except:
+                                        relayout_maxrange = datetime.strptime(relayout['xaxis.range'][1],"%Y-%m-%d %H:%M:%S.%f").timestamp()
 
+                            now_maxrange = maxtime
                             if 'range' in figure['layout']['xaxis']:
                                 try:
                                     now_maxrange =  datetime.strptime(figure['layout']['xaxis']['range'][1],"%Y-%m-%d %H:%M:%S")
                                 except:
                                     now_maxrange =  datetime.strptime(figure['layout']['xaxis']['range'][1],"%Y-%m-%d %H:%M:%S%f")
 
+                                print('1111111111111111111111111111111111111111111111')
+                                print(relayout['xaxis.range[0]'])
+                                print(relayout['xaxis.range[1]'])
+                                print(figure['layout']['xaxis']['range'][0])
+                                print(figure['layout']['xaxis']['range'][1])
+                                print('2222222222222222222222222222222222222222222222222')
+
                             threshold = (maxtime.timestamp()-100)
-
-                            # print(relayout['xaxis.range[0]'])
-                            # print(relayout['xaxis.range[1]'])
-                            # print(figure["data"][0]['x'][-1])
-
                             # when the reset of maximal range exceeds a threshold value, the maximal range is assigned as maxtime
                             if relayout_maxrange > threshold or now_maxrange > maxtime:
-                                maxtime_set = (maxtime + timedelta(seconds = 120)).strftime("%Y-%m-%d %H:%M:%S")
+                                maxtime_set = (maxtime + timedelta(seconds=120)).strftime("%Y-%m-%d %H:%M:%S")
 
-                                the_range = [relayout['xaxis.range[0]'], maxtime_set]
-                                figure['layout']['xaxis']['range'] = the_range
+                                if 'xaxis.range[1]' in relayout:
+                                    the_range = [relayout['xaxis.range[0]'], maxtime_set]
+                                    figure['layout']['xaxis']['range'] = the_range
+                                elif 'xaxis.range' in relayout:
+                                    the_range = [relayout['xaxis.range'][0], maxtime_set]
+                                    figure['layout']['xaxis']['range'] = the_range
                             else:
-                                figure['layout']['xaxis']['range'] = [relayout['xaxis.range[0]'], relayout['xaxis.range[1]']]
+
+                                if 'xaxis.range[1]' in relayout:
+                                    figure['layout']['xaxis']['range'] = [relayout['xaxis.range[0]'],
+                                                                          relayout['xaxis.range[1]']]
+                                elif 'xaxis.range' in relayout:
+                                    figure['layout']['xaxis']['range'] = [relayout['xaxis.range'][0],
+                                                                          relayout['xaxis.range'][1]]
+
+                            if 'xaxis.range[1]' in relayout:
+                                if 'range' in figure['layout']['xaxis']:
+                                    print(relayout['xaxis.range[0]'])
+                                    print(relayout['xaxis.range[1]'])
+                                    print(figure['layout']['xaxis']['range'][0])
+                                    print(figure['layout']['xaxis']['range'][1])
+                                    print('3333333333333333333333333333333333333333333333333')
 
 
                 return figure, dis

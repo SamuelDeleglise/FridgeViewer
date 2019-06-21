@@ -16,8 +16,8 @@
       <file leaf-file-name="app.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/app.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="68">
-              <caret line="775" column="24" lean-forward="true" selection-start-line="775" selection-start-column="24" selection-end-line="775" selection-end-column="24" />
+            <state relative-caret-position="282">
+              <caret line="664" column="19" lean-forward="false" selection-start-line="664" selection-start-column="19" selection-end-line="664" selection-end-column="19" />
               <folding>
                 <element signature="e#36#45#0" expanded="true" />
               </folding>
@@ -46,6 +46,7 @@
       <find>%m</find>
       <find>%</find>
       <find>dataFrame</find>
+      <find>do_autoscale</find>
     </findStrings>
   </component>
   <component name="Git.Settings">
@@ -59,10 +60,10 @@
     </option>
   </component>
   <component name="ProjectFrameBounds">
-    <option name="x" value="579" />
-    <option name="y" value="202" />
+    <option name="x" value="391" />
+    <option name="y" value="26" />
     <option name="width" value="1058" />
-    <option name="height" value="803" />
+    <option name="height" value="756" />
   </component>
   <component name="ProjectView">
     <navigator currentView="ProjectPane" proportions="" version="1">
@@ -124,7 +125,7 @@
     <servers />
   </component>
   <component name="ToolWindowManager">
-    <frame x="579" y="202" width="1058" height="803" extended-state="0" />
+    <frame x="391" y="26" width="1058" height="756" extended-state="0" />
     <editor active="true" />
     <layout>
       <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.0" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
@@ -144,7 +145,20 @@
     </layout>
   </component>
   <component name="XDebuggerManager">
-    <breakpoint-manager />
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/app.py</url>
+          <line>782</line>
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/app.py</url>
+          <line>777</line>
+          <option name="timeStamp" value="1" />
+        </line-breakpoint>
+      </breakpoints>
+      <option name="time" value="2" />
+    </breakpoint-manager>
     <watches-manager />
   </component>
   <component name="editorHistoryManager">
@@ -158,8 +172,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/app.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="68">
-          <caret line="775" column="24" lean-forward="true" selection-start-line="775" selection-start-column="24" selection-end-line="775" selection-end-column="24" />
+        <state relative-caret-position="282">
+          <caret line="664" column="19" lean-forward="false" selection-start-line="664" selection-start-column="19" selection-end-line="664" selection-end-column="19" />
           <folding>
             <element signature="e#36#45#0" expanded="true" />
           </folding>
