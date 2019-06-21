@@ -648,21 +648,7 @@ def update_num_display_and_time(num_before, num_today, n_intervals):
     return html.H2('{0}'.format(total_num), style={ 'margin-top': '3px'})
 
 n_clicks_autoscale = 0
-@app.callback([Output('temperature-graph', 'relayoutData')],
-               [Input('autoscale','n_clicks')])
-def autoscale(click):
-    global n_clicks_autoscale
-    if click is None:
-        click = 0
-    if click>n_clicks_autoscale:
-        do_autoscale = True
-        print("autoscale was clicked")
-        n_clicks_autoscale = click
-    else:
-        do_autoscale = False
 
-    if do_autoscale:
-    else: no_update
 @app.callback([Output('temperature-graph', 'figure'),
                Output('div-data-display', 'children')],
             [Input('before-log-storage', 'children'),
@@ -675,6 +661,15 @@ def autoscale(click):
             [State('temperature-graph', 'figure'),
              State('temperature-graph', 'relayoutData')])
 def update_graph(before_data, end_date, start_date, today_data, selected_dropdown_value, display_mode_value, click, figure, relayout):
+    global n_clicks_autoscale
+    if click is None:
+        click = 0
+    if click>n_clicks_autoscale:
+        do_autoscale = True
+        print("autoscale was clicked")
+        n_clicks_autoscale = click
+    else:
+        do_autoscale = False
 
 
     layout_set = {'colorway': color_list,
@@ -836,7 +831,8 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
                                     print(figure['layout']['xaxis']['range'][1])
                                     print('3333333333333333333333333333333333333333333333333')
 
-
+                    if do_autoscale:
+                        figure['layout']['xaxis']['autorange'] = True
                 return figure, dis
             else: no_update, no_update
         else:
