@@ -684,7 +684,7 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
                                 {'count': 3, 'label': '3 days', 'step': 'day', 'stepmode': 'backward'},
                                 {'count': 7, 'label': '1 week', 'step': 'day', 'stepmode': 'backward'},
                                 {'step': 'all'}])},
-                            'rangeslider': {'visible': True,'yaxis' :{"rangemode": "auto"} }, 'type': 'date'},
+                             'type': 'date'},
                         'margin':{'l':60, 'b': 40, 't': 80, 'r': 10},
                         'yaxis' : {"title":"Value",
                                 },
