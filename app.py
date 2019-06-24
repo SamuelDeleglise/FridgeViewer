@@ -1,47 +1,37 @@
 # In[]:
 # Import required libraries
 import os
-
 import pandas as pd
 from flask import Flask
 from flask_cors import CORS
-import dash 
-from dash import no_update
-from dash.dependencies import Input, Output, State
-
-
-# need to update the latest version
-#############################################
-import dash_core_components as dcc
-import dash_html_components as html
 from datetime import timedelta, date, time, datetime
-import plotly.graph_objs as go
-from plotly import tools
 import numpy as np
 import sys
 import time
 from data import *
 
+# need to update the latest version
+#######################################################
+import dash #latest version 1.0.0
+from dash import no_update
+from dash.dependencies import Input, Output, State
+import dash_core_components as dcc
+import dash_html_components as html
+import plotly.graph_objs as go
+from plotly import tools
+
 app = dash.Dash(__name__)
 
+# external CSS
 #https://cdnjs.cloudflare.com/ajax/libs/normalize/7.0.0/normalize.min.css
 #https://codepen.io/chriddyp/pen/bWLwgP.css
-app.css.append_css({'external_url': 'https://rayonde.github.io/external_css/fridge.css'})  
+# app.css.append_css({'external_url': 'https://rayonde.github.io/external_css/fridge.css'})  
 
+app.css.config.serve_locally = True
+app.scripts.config.serve_locally = True
 
 server = app.server
 CORS(server)
-#######################################################
-# from flask_caching import Cache
-# cache = Cache(app.server, config={
-#     # try 'filesystem' if you don't want to setup redis
-#     'CACHE_TYPE': 'redis',
-#     'CACHE_REDIS_URL': os.environ.get('REDIS_URL', '')
-# })
-# app.config.suppress_callback_exceptions = True
-
-# # Time-based expiry is helpful if you want to update your data (clear your cache) every hour or every day.
-# timeout = 60 * 60 # seconds
 #######################################################
 
 
@@ -66,6 +56,12 @@ def create_cache_div(name, info):
 # Create app layout
 app.layout = html.Div([ 
     
+    # CSS
+    html.Link(
+        rel='stylesheet',
+        href='/static/stylesheet.css'
+    ),
+
     # Live mode or not according to end_date
     # Real time control
     dcc.Interval(
@@ -214,7 +210,8 @@ app.layout = html.Div([
 
                     dcc.RadioItems(
                         options=[
-                            {'label': ' Overlapping', 'value': 'overlap'},
+                            {'label': ' Overlap', 'value': 'overlap'},
+                            {'label': ' Timeslider', 'value': 'timeslider'},
                             {'label': ' Separate', 'value': 'separate'},
                         ],
                         value='overlap',
@@ -266,8 +263,13 @@ app.layout = html.Div([
 ],id ='page', className='ten columns offset-by-one'
 )
 
-
 ########################################################
+
+# Get static CSS
+@app.server.route('/static/<path:path>')
+def static_file(path):
+    static_folder = os.path.join(os.getcwd(), 'static')
+    return send_from_directory(static_folder, path)
 
 
 # Get the experiment list automatically every 24h
@@ -463,11 +465,10 @@ def update_interval_log_update(interval_rate):
                   State('before-log-storage', 'children'),
                   State('num-before-storage','data'),
                   ])
-# @cache.memoize(timeout=timeout)  # in seconds
+
 def get_before_log(start_date, end_date, exp, data_channel, before, num_before):
 
     if exp is not None:
-    
         # get the path from the selection of experiment
         path = path_lab +'\\' + exp +'\\data'
         
@@ -481,7 +482,6 @@ def get_before_log(start_date, end_date, exp, data_channel, before, num_before):
             print("start_date and end_date have wrong filetype.") 
         
         # the first time, the list of date_list_old is initialized as an empty list
-
         if before is not None:
             if exp != before['exp_before']:
                 before.clear()
@@ -501,7 +501,6 @@ def get_before_log(start_date, end_date, exp, data_channel, before, num_before):
         else:
             date_list_old = [] 
         
-
         # the different dates between two lists
         date_update = [i.date() for i in date_list if i not in date_list_old]
         
@@ -661,6 +660,7 @@ n_clicks_autoscale = 0
             [State('temperature-graph', 'figure'),
              State('temperature-graph', 'relayoutData')])
 def update_graph(before_data, end_date, start_date, today_data, selected_dropdown_value, display_mode_value, click, figure, relayout):
+    
     global n_clicks_autoscale
     if click is None:
         click = 0
@@ -670,7 +670,6 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
         n_clicks_autoscale = click
     else:
         do_autoscale = False
-
 
     layout_set = {'colorway': color_list,
                        'title':"The sensor channel monitor",
@@ -683,17 +682,16 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
                                 {'count': 1, 'label': '1 day', 'step': 'day', 'stepmode': 'backward'},
                                 {'count': 3, 'label': '3 days', 'step': 'day', 'stepmode': 'backward'},
                                 {'count': 7, 'label': '1 week', 'step': 'day', 'stepmode': 'backward'},
-                                {'step': 'all'}])},
-                            'rangeslider': {'visible': True,'yaxis' :{"rangemode": "auto"} }, 'type': 'date'},
+                                {'step': 'all'}])}, 'type': 'date'},
                         'margin':{'l':60, 'b': 40, 't': 80, 'r': 10},
                         'yaxis' : {"title":"Value",
                                 },
-            }
+                }
+    
     start_date = datetime.strptime(start_date, r'%Y-%m-%d')
     end_date = datetime.strptime(end_date, r'%Y-%m-%d')
     date_list = datelist(start_date, end_date)
-
-    
+  
     if end_date.date() == datetime.today().date(): 
         # to keep same format for single channel or mutiple channels
         if not isinstance(selected_dropdown_value, (list,)):
@@ -702,12 +700,14 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
         if today_data is not None:
             trace = []
             dis = []
-            
+
+            # read data from json cache
             if before_data is not None:
                 before_data.update(today_data)
             else:
                 before_data = today_data
             
+            # The keys of 'before_data' contains the keywords 'exp_before' or 'exp_today' and corresponding years
             date_log_list = list(before_data.keys())
             if 'exp_before' in date_log_list:
                 date_log_list.remove('exp_before')
@@ -723,12 +723,11 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
                     temp_df = pd.read_json(before_data[date_str], orient='split')
                     data_df = pd.concat([data_df, temp_df], axis=0) 
 
-
+            # selected_dropdown_value is not None or not empty
             if selected_dropdown_value is not None or selected_dropdown_value:
-
+                
                 maxtime_list = []
                 mintime_list = []
-
 
                 for channel in selected_dropdown_value:
                     channel_time = 'Time_'+ channel
@@ -741,14 +740,14 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
                     maxtime_list.append(temp[channel_time].iloc[-1])
                     mintime_list.append(temp[channel_time].iloc[0])
 
-
                     trace.append(go.Scatter(x=temp[channel_time], y=temp[channel],mode='lines', opacity=0.7,name=channel, textposition='bottom center'))
                     dis.append(html.H6('{0} : {1}'.format(channel, temp[channel].iloc[-1]), style={ 'margin-top': '3px'}))
-
+                 
                 # the time of last data
                 if maxtime_list:
                     maxtime_list = pd.to_datetime(maxtime_list, format=r'%Y%m%d %H:%M:%S')
                     maxtime = max(maxtime_list)
+                
                 if mintime_list:
                     mintime_list = pd.to_datetime(maxtime_list, format=r'%Y%m%d %H:%M:%S')
                     mintime = max(maxtime_list)
@@ -756,28 +755,34 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
                 # overlap display
                 if display_mode_value == 'overlap':
                     figure = {'data': trace, 'layout': layout_set}
-
+                
+                # time slider 
+                elif display_mode_value == 'timeslider':
+                    figure = {'data': trace, 'layout': layout_set}
+                    figure['layout']['rangeslider'].update(visible= True) 
+                
                 # separate dislay
                 elif display_mode_value == 'separate':
                     num =  len(selected_dropdown_value)
-                    
                     figure = tools.make_subplots(rows=num, cols=1)
     
                     for index, (tra, chan) in enumerate(zip(trace, selected_dropdown_value)):     
                         figure.append_trace(tra, index+1, 1)
                         figure['layout']['xaxis{}'.format(index+1)].update(title='The channel of {0}'.format(chan)) 
 
-                    figure['layout'].update(uirevision= click)
                     figure['layout'].update(height=500*num) 
-
+                
+                # keep the zoom 
                 if figure is not None:
-                    print('figure is not None')
+                    
+                    # have attribute 'relayout, the attribute 'range' exists only execute the zoom 
                     if relayout is not None:
-                        print('relayout is not None')
-                        print(relayout)
-                        if 'xaxis.range[1]' in relayout or 'xaxis.range' in relayout:
-                            print('xaxis.range is not None')
+                    
 
+                        # x range maximum
+                        relayout_maxrange = None
+                        if 'xaxis.range[1]' in relayout or 'xaxis.range' in relayout:
+                            # get the previous range
                             try:
                                 relayout_maxrange = datetime.strptime(relayout['xaxis.range[1]'],"%Y-%m-%d %H:%M:%S").timestamp()
                             except:
@@ -788,57 +793,59 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
                                         relayout_maxrange = datetime.strptime(relayout['xaxis.range'][1],"%Y-%m-%d %H:%M:%S").timestamp()
                                     except:
                                         relayout_maxrange = datetime.strptime(relayout['xaxis.range'][1],"%Y-%m-%d %H:%M:%S.%f").timestamp()
-
+                        
+                        # the range shown in the figure 
+                        # now_maxrange is the last time or the actual range maximum 
+                        if 'range' in figure['layout']['xaxis']:
+                            try:
+                                now_maxrange =  datetime.strptime(figure['layout']['xaxis']['range'][1],"%Y-%m-%d %H:%M:%S")
+                            except:
+                                now_maxrange =  datetime.strptime(figure['layout']['xaxis']['range'][1],"%Y-%m-%d %H:%M:%S%f")
+                        else:
                             now_maxrange = maxtime
-                            if 'range' in figure['layout']['xaxis']:
-                                try:
-                                    now_maxrange =  datetime.strptime(figure['layout']['xaxis']['range'][1],"%Y-%m-%d %H:%M:%S")
-                                except:
-                                    now_maxrange =  datetime.strptime(figure['layout']['xaxis']['range'][1],"%Y-%m-%d %H:%M:%S%f")
-
-                                print('1111111111111111111111111111111111111111111111')
-                                print(relayout['xaxis.range[0]'])
-                                print(relayout['xaxis.range[1]'])
-                                print(figure['layout']['xaxis']['range'][0])
-                                print(figure['layout']['xaxis']['range'][1])
-                                print('2222222222222222222222222222222222222222222222222')
-
-                            threshold = (maxtime.timestamp()-100)
-                            # when the reset of maximal range exceeds a threshold value, the maximal range is assigned as maxtime
+                        
+                        # the threshold of showing the updated data
+                        threshold = (maxtime.timestamp()-100)
+                        # print(relayout['xaxis.range[0]'])
+                        # print(relayout['xaxis.range[1]'])
+                        # print(figure['layout']['xaxis']['range'][0])
+                        # print(figure['layout']['xaxis']['range'][1])
+                    
+                        if relayout_maxrange:
+                            # when the reset of maximal range exceeds a threshold value, the range maximum is assigned as maxtime_updated
                             if relayout_maxrange > threshold or now_maxrange > maxtime:
-                                maxtime_set = (maxtime + timedelta(seconds=120)).strftime("%Y-%m-%d %H:%M:%S")
-
+                                
+                                maxtime_updated = (maxtime + timedelta(seconds=500)).strftime("%Y-%m-%d %H:%M:%S")
                                 if 'xaxis.range[1]' in relayout:
-                                    the_range = [relayout['xaxis.range[0]'], maxtime_set]
+                                    the_range = [relayout['xaxis.range[0]'], maxtime_updated]
                                     figure['layout']['xaxis']['range'] = the_range
                                 elif 'xaxis.range' in relayout:
-                                    the_range = [relayout['xaxis.range'][0], maxtime_set]
+                                    the_range = [relayout['xaxis.range'][0], maxtime_updated]
                                     figure['layout']['xaxis']['range'] = the_range
                             else:
-
                                 if 'xaxis.range[1]' in relayout:
                                     figure['layout']['xaxis']['range'] = [relayout['xaxis.range[0]'],
                                                                           relayout['xaxis.range[1]']]
                                 elif 'xaxis.range' in relayout:
                                     figure['layout']['xaxis']['range'] = [relayout['xaxis.range'][0],
-                                                                          relayout['xaxis.range'][1]]
-
-                            if 'xaxis.range[1]' in relayout:
-                                if 'range' in figure['layout']['xaxis']:
-                                    print(relayout['xaxis.range[0]'])
-                                    print(relayout['xaxis.range[1]'])
-                                    print(figure['layout']['xaxis']['range'][0])
-                                    print(figure['layout']['xaxis']['range'][1])
-                                    print('3333333333333333333333333333333333333333333333333')
+                                                                         relayout['xaxis.range'][1]]
+                        # y range 
+                        if 'yaxis.range[1]' in relayout and 'yaxis.range[0]' in relayout:
+                                figure['layout']['yaxis']['range'] = [relayout['yaxis.range[0]'],
+                                                                      relayout['yaxis.range[1]']]
+                        elif 'xaxis.range' in relayout:
+                             figure['layout']['yaxis']['range'] = [relayout['yaxis.range'][0], 
+                                                                      relayout['yaxis.range'][1]] 
 
                     if do_autoscale:
                         figure['layout']['xaxis']['autorange'] = True
+                
                 return figure, dis
+            
             else: no_update, no_update
         else:
             return no_update, no_update
     else:
-        
         # to keep same format for single channel or mutiple channels
         if not isinstance(selected_dropdown_value, (list,)):
             selected_dropdown_value = [selected_dropdown_value]
@@ -873,7 +880,6 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
                         temp[channel] = data_df[channel].dropna()
                         temp[channel_time] = data_df[channel_time].dropna()
 
-
                     trace.append(
                         go.Scatter(x=temp[channel_time], y=temp[channel], mode='lines', opacity=0.7, name=channel,
                                    textposition='bottom center'))
@@ -881,23 +887,27 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
                     dis.append(
                         html.H6('{0} : {1}'.format(channel, temp[channel].iloc[-1]), style={'margin-top': '3px'}))
 
-
+                
                 # overlap display
                 if display_mode_value == 'overlap':
                     figure = {'data': trace, 'layout': layout_set}
                     figure['layout'].update(uirevision= click)
 
-                # separate dislay 
+                # time slider 
+                elif display_mode_value == 'timeslider':
+                    figure = {'data': trace, 'layout': layout_set}
+                    figure['layout']['rangeslider'].update(visible= True) 
+                    figure['layout'].update(uirevision=click)
+                
+                # separate dislay
                 elif display_mode_value == 'separate':
-
                     num =  len(selected_dropdown_value)
                     figure = tools.make_subplots(rows=num, cols=1)
-                    
-                    figure['layout'].update(uirevision=click)
+    
                     for index, (tra, chan) in enumerate(zip(trace, selected_dropdown_value)):     
                         figure.append_trace(tra, index+1, 1)
                         figure['layout']['xaxis{}'.format(index+1)].update(title='The channel of {0}'.format(chan)) 
-            
+
                     figure['layout'].update(height=500*num)
                     figure['layout'].update(uirevision= click)
 
@@ -908,107 +918,111 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
             return no_update, no_update
         
         
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        # df = pd.DataFrame()
-        # if before_data is not None:
-        #     for key, value in before_data.items():
-        #         before_df = pd.read_json(value, orient='split')
-        #         df = pd.concat([df, before_df], axis=0, sort=True)
-        
-        #     # create empty trace     
-        #     trace = []
-        #     # to keep same format for single channel or mutiple channels
-        #     if not isinstance(selected_dropdown_value, (list,)):
-        #         selected_dropdown_value = [selected_dropdown_value]
-            
-        #     for channel in selected_dropdown_value:
-        #         key_time = 'Time_'+ channel
-        #         key = channel
-        #         if key in df.keys() and key_time in df.keys():
-        #             temp_df = pd.concat([df[key_time], df[key]], axis=1)
-        #             temp_df[key_time] = pd.to_datetime(temp_df[key_time], format=r'%Y%m%d %H:%M:%S')
-                    
-        #             # eliminate the NaN elements
-        #             temp_df.dropna()
-        #             trace.append(go.Scatter(x=temp_df[key_time], y=temp_df[key],mode='lines',
-        #             opacity=0.7,name=channel, textposition='bottom center'))
-        #         else: 
-        #             print('There is no trace required')
 
-        #     data = trace
-        #     # overlap display
-        #     if display_mode_value == 'overlap':
-        #         figure = {'data': data, 'layout': layout_set}
-            
-        #     # separate dislay 
-        #     elif display_mode_value == 'separate':
-        #         num =  len(selected_dropdown_value)
-        #         figure = tools.make_subplots(rows=num, cols=1)
-                
-        #         for index, (tra, chan) in enumerate(zip(trace, selected_dropdown_value)):     
-        #             figure.append_trace(tra, index+1, 1)
-        #             figure['layout']['xaxis{}'.format(index+1)].update(title='The channel of {0}'.format(chan)) 
-                
-        #         figure['layout'].update(height=500*num)  
+# Main
+if __name__ == '__main__':
+    if len(sys.argv)>=2:
+        path_lab = sys.argv[1]
+    else:
+        path_lab = None
+    print(path_lab)
+    app.server.run(debug=False, threaded=True)
 
-        #     return figure, dis       
-        # else:
-        #     return no_update, no_update
+# In Jupyter, debug = False 
+
+#%%
+
+ 
+# df = pd.DataFrame()
+# if before_data is not None:
+#     for key, value in before_data.items():
+#         before_df = pd.read_json(value, orient='split')
+#         df = pd.concat([df, before_df], axis=0, sort=True)
+
+#     # create empty trace     
+#     trace = []
+#     # to keep same format for single channel or mutiple channels
+#     if not isinstance(selected_dropdown_value, (list,)):
+#         selected_dropdown_value = [selected_dropdown_value]
+    
+#     for channel in selected_dropdown_value:
+#         key_time = 'Time_'+ channel
+#         key = channel
+#         if key in df.keys() and key_time in df.keys():
+#             temp_df = pd.concat([df[key_time], df[key]], axis=1)
+#             temp_df[key_time] = pd.to_datetime(temp_df[key_time], format=r'%Y%m%d %H:%M:%S')
+            
+#             # eliminate the NaN elements
+#             temp_df.dropna()
+#             trace.append(go.Scatter(x=temp_df[key_time], y=temp_df[key],mode='lines',
+#             opacity=0.7,name=channel, textposition='bottom center'))
+#         else: 
+#             print('There is no trace required')
+
+#     data = trace
+#     # overlap display
+#     if display_mode_value == 'overlap':
+#         figure = {'data': data, 'layout': layout_set}
+    
+#     # separate dislay 
+#     elif display_mode_value == 'separate':
+#         num =  len(selected_dropdown_value)
+#         figure = tools.make_subplots(rows=num, cols=1)
+        
+#         for index, (tra, chan) in enumerate(zip(trace, selected_dropdown_value)):     
+#             figure.append_trace(tra, index+1, 1)
+#             figure['layout']['xaxis{}'.format(index+1)].update(title='The channel of {0}'.format(chan)) 
+        
+#         figure['layout'].update(height=500*num)  
+
+#     return figure, dis       
+# else:
+#     return no_update, no_update
 
        
 
-    # # live mode
-    # if today_data is not None:
-    #     end_date = datetime.strptime(end_date, r'%Y-%m-%d')
-    #     if end_date.date() == datetime.today().date(): 
-    #         if selected_dropdown_value is not None:
+# # live mode
+# if today_data is not None:
+#     end_date = datetime.strptime(end_date, r'%Y-%m-%d')
+#     if end_date.date() == datetime.today().date(): 
+#         if selected_dropdown_value is not None:
+            
+#             trace = []
+#             dis = []
+#             data = pd.DataFrame()
+#             for key, value in today_data.items():
+#                 today_data = pd.read_json(value, orient='split')
+#                 data = pd.concat([data, today_data], axis=0, sort=True)
+
+#             if not isinstance(selected_dropdown_value, (list,)):
+#                 selected_dropdown_value = [selected_dropdown_value]
+            
+#             for channel in selected_dropdown_value:
+#                 channel_time = 'Time_'+channel
+
+#                 data[channel_time] = pd.to_datetime(data[channel_time], format=r'%Y%m%d %H:%M:%S')
+
+#                 trace.append(go.Scatter(x=data[channel_time], y=data[channel],mode='lines',
+#                 opacity=0.7,name=channel, textposition='bottom center'))
+
+#                 dis.append(html.H6('{0} : {1}'.format(channel, data[channel].iloc[-1]), style={ 'margin-top': '3px'}))
+    
+#             if len(trace) is not 0:
                 
-    #             trace = []
-    #             dis = []
-    #             data = pd.DataFrame()
-    #             for key, value in today_data.items():
-    #                 today_data = pd.read_json(value, orient='split')
-    #                 data = pd.concat([data, today_data], axis=0, sort=True)
-
-    #             if not isinstance(selected_dropdown_value, (list,)):
-    #                 selected_dropdown_value = [selected_dropdown_value]
-                
-    #             for channel in selected_dropdown_value:
-    #                 channel_time = 'Time_'+channel
-
-    #                 data[channel_time] = pd.to_datetime(data[channel_time], format=r'%Y%m%d %H:%M:%S')
-
-    #                 trace.append(go.Scatter(x=data[channel_time], y=data[channel],mode='lines',
-    #                 opacity=0.7,name=channel, textposition='bottom center'))
-
-    #                 dis.append(html.H6('{0} : {1}'.format(channel, data[channel].iloc[-1]), style={ 'margin-top': '3px'}))
-        
-    #             if len(trace) is not 0:
-                    
-    #                 # overlap display
-    #                 if display_mode_value == 'overlap':
-    #                     return trace, dis
-    #                 # separate dislay 
-    #                 elif display_mode_value == 'separate': 
-    #                     return trace, dis
-    #             else:
-    #                 return no_update, no_update
-    #         else: 
-    #             return no_update, no_update
-    #     else: 
-    #         return no_update, no_update
-    # else: 
-    #     return no_update, no_update
+#                 # overlap display
+#                 if display_mode_value == 'overlap':
+#                     return trace, dis
+#                 # separate dislay 
+#                 elif display_mode_value == 'separate': 
+#                     return trace, dis
+#             else:
+#                 return no_update, no_update
+#         else: 
+#             return no_update, no_update
+#     else: 
+#         return no_update, no_update
+# else: 
+#     return no_update, no_update
 
 
 
@@ -1102,18 +1116,3 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
 #     else:
 #         return no_update, no_update, no_update
         
-
-
-
-# Main
-if __name__ == '__main__':
-    if len(sys.argv)>=2:
-        path_lab = sys.argv[1]
-    else:
-        path_lab = None
-    print(path_lab)
-    app.server.run(debug=False, threaded=True)
-
-# In Jupyter, debug = False 
-
-#%%
