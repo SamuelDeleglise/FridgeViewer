@@ -465,10 +465,8 @@ def update_interval_log_update(interval_rate):
                   Input('date_range', 'end_date'),
                   Input('experiment', 'value'),
                   Input('channels-storage', 'data'),],
-                 [
-                  State('before-log-storage', 'children'),
-                  State('num-before-storage','data'),
-                  ])
+                 [State('before-log-storage', 'children'),
+                  State('num-before-storage','data'),])
 
 def get_before_log(start_date, end_date, exp, data_channel, before, num_before):
 
@@ -487,22 +485,28 @@ def get_before_log(start_date, end_date, exp, data_channel, before, num_before):
         
         # the first time, the list of date_list_old is initialized as an empty list
         if before is not None:
-            
+            # 
             if 'exp_before' in before:
+                # the stored data is same as the selected exp
                 if exp == before['exp_before']:
-                    date_list_old = list(before.keys())
                     
+                    date_list_old = list(before.keys())
                     if 'exp_before' in date_list_old:
                                     date_list_old.remove('exp_before')
                     if 'exp_today' in date_list_old:
                                     date_list_old.remove('exp_today')
-                    
+
+                    # date_list_old is not empty 
                     if  date_list_old:
-                        date_list_old.sort()
-                    
-                        start_date_old = datetime.strptime(date_list_old[0], r'%Y-%m-%d')
-                        end_date_old = datetime.strptime(date_list_old[-1],r'%Y-%m-%d')
-                        date_list_old = datelist(start_date_old, end_date_old)
+                        date_list_temp = []
+                        for date in date_list_old:
+                            date_list_temp.append(datetime.strptime(date, r'%Y-%m-%d'))
+                        
+                        start_date_old = min(date_list_temp)
+                        end_date_old = maxi(date_list_temp)
+                        date_list_old = date_list_temp
+                    else:
+                        date_list_old = []
                     
                     # the different dates between two lists
                     date_update = [i.date() for i in date_list if i not in date_list_old]
@@ -518,7 +522,6 @@ def get_before_log(start_date, end_date, exp, data_channel, before, num_before):
                         channel_set = data_channel['channels'] 
                         
                         for single_date in date_update:
-
                             # extract one day's data 
                             try:
                                 df = get_1day_data_str(single_date, channel_set, path)
@@ -551,9 +554,13 @@ def get_before_log(start_date, end_date, exp, data_channel, before, num_before):
                         print("The channel set is empty.")
                         return no_update, no_update
                 else:
-                    return {}, {'num_before': 0}
+                    return None, {'num_before': 0}
+            else: 
+                return no_update, no_update
         else:
+            # before is None 
             date_update = date_list
+            
             # remove today, it will update in another callback
             if datetime.today().date() in date_update:
                 date_update.remove(datetime.today().date())
@@ -563,9 +570,8 @@ def get_before_log(start_date, end_date, exp, data_channel, before, num_before):
                 cache_dic = {}
                 num_total = 0
                 channel_set = data_channel['channels'] 
-                    
+                 
                 for single_date in date_update:
-
                     # extract one day's data 
                     try:
                         df = get_1day_data_str(single_date, channel_set, path)
@@ -586,14 +592,16 @@ def get_before_log(start_date, end_date, exp, data_channel, before, num_before):
                         print("Fail to transfer the data to json type.")
                     else: 
                         print('Succeed to transfer the data to json type.')
-                        num_total = num_total + num_df
+                    
+                    num_total = num_total + num_df
 
                 cache_dic['exp_before'] = exp   
                 return cache_dic, {'num_before': num_total}
             else:
                 print("The channel set is empty.")
                 return no_update, no_update
-
+    else:
+        return no_update, no_update
 
 # Update today's json data 
 @app.callback([Output('today-log-storage', 'children'),
