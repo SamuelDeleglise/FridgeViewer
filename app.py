@@ -403,9 +403,13 @@ def update_date_range(exp, year):
 
     if exp is not None and year is not None: 
         path = path_lab + '\\' + exp + r'\data' + '\\' + year
-        dates = all_folder_paths(path)
-        min_date = datetime.strptime(path_leaf(dates[0]), r'%y-%m-%d')
-        max_date = datetime.strptime(path_leaf(dates[-1]), r'%y-%m-%d')
+        dates_path = all_folder_paths(path)
+        dates = []
+        for date in dates_path :
+            dates.append(datetime.strptime(path_leaf(date),r'%y-%m-%d'))
+
+        min_date =min(dates)
+        max_date = max(dates)
 
         month = max_date
         start_date = max_date 
@@ -547,7 +551,7 @@ def get_before_log(start_date, end_date, exp, data_channel, before, num_before):
                         print("The channel set is empty.")
                         return no_update, no_update
                 else:
-                    return None, None
+                    return {}, {'num_before': 0}
         else:
             date_update = date_list
             # remove today, it will update in another callback
@@ -783,8 +787,9 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
                     # drop all NaN
                     if channel in data_df:
                         temp = pd.DataFrame()
-                        temp[channel] = data_df[channel].dropna()
-                        temp[channel_time] = data_df[channel_time].dropna()
+                        temp[channel] = data_df[channel]
+                        temp[channel_time] = data_df[channel_time]
+                        temp.dropna(inplace=True)
 
                         maxtime_list.append(temp[channel_time].iloc[-1])
                         mintime_list.append(temp[channel_time].iloc[0])
@@ -794,6 +799,7 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
                  
                 # the time of last data
                 # 'pd.to_datetime' converts the time in UTC, so here we use 'datetime.strptime' to keep same format 
+                maxtime =datetime.today()
                 if maxtime_list:
                     max_list =[]
                     for time in maxtime_list:
@@ -863,6 +869,7 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
                                     now_maxrange = maxtime
                             elif maxtime:
                                     now_maxrange = maxtime
+
                         elif 'xaxis1' in figure['layout']:
                             temp_now_list = []
                             for index, tra in enumerate(trace):     
@@ -953,7 +960,7 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
                     temp_df = pd.read_json(before_data[date_str], orient='split')
                     data_df = pd.concat([data_df, temp_df], axis=0)
 
-            if selected_dropdown_value is not None or selected_dropdown_value:
+            if selected_dropdown_value is not None or not selected_dropdown_value:
                 for channel in selected_dropdown_value:
                     channel_time = 'Time_'+ channel
 
@@ -962,8 +969,9 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
                     # drop all NaN
                     if channel in data_df:
                         temp = pd.DataFrame()
-                        temp[channel] = data_df[channel].dropna()
-                        temp[channel_time] = data_df[channel_time].dropna()
+                        temp[channel] = data_df[channel]
+                        temp[channel_time] = data_df[channel_time]
+                        temp.dropna(inplace=True)
 
                         trace.append(
                             go.Scatter(x=temp[channel_time], y=temp[channel], mode='lines', opacity=0.7, name=channel,
@@ -1200,4 +1208,3 @@ if __name__ == '__main__':
 #             return no_update, no_update, no_update
 #     else:
 #         return no_update, no_update, no_update
-        
