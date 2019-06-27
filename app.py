@@ -1481,7 +1481,6 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
                 # time slider 
                 elif display_mode_value == 'timeslider':
                     figure = {'data': trace, 'layout': layout_set2}
-                    figure['layout']['rangeslider'].update(visible= True) 
                     figure['layout'].update(uirevision=click)
                 
                 # separate dislay
