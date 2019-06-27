@@ -45,7 +45,10 @@ initial_start_date = datetime(2019, 4, 13)
 path_data_auto = r'LOGS\DummyFridge\data'
 #path_lab = r'LOGS'
 #path_lab = r'Z:\ManipMembranes'
+global path_lab
 path_lab = None
+path_lab2 = path_lab
+path_lab3 = path_lab
 color_list = ["#5E0DAC", '#FF4F00', '#375CB1', '#FF7400', '#FFF400', '#FF0056']
 
 
@@ -53,8 +56,23 @@ def create_cache_div(name, info):
     return dcc.Store(id='{0}-log-storage'.format(name), storage_type='memory', data = info)
 
 
-# Create app layout
-app.layout = html.Div([ 
+def get_menu():
+    menu = html.Div([
+        html.Div([
+            dcc.Link('Cryogenic Fridge', href='/opto/cryogenic-fridge', className='tab first',),
+        ],className='three columns', style={'display': 'inline-block'}),
+        html.Div([
+            dcc.Link('Membrance', href='/opto/membrance', className='tab',),
+        ],className='three columns', style={'display': 'inline-block'}),
+        html.Div([
+            dcc.Link(' Micro cavity', href='/opto/micro-cavity', className='tab',),
+        ],className='three columns', style={'display': 'inline-block'}),
+    
+    ],style={'width': '100%', 'display': 'inline-block'})
+    return menu
+
+
+page1 = html.Div([ 
     
     # CSS
     html.Link(
@@ -104,11 +122,16 @@ app.layout = html.Div([
                 'position': 'relative',
                 },
             ),
+           
         ], className='row' , style={'margin-top': 5, 'margin-bottom': 5,}
     ),
     
-    html.Div(
-        [
+    html.Div([
+        get_menu(),
+    ], className='row' , style={'margin-top': 5, 'margin-bottom': 5,}
+    ),
+
+    html.Div([
         html.Div([
             html.Div([
                 html.P('Experiment:',style={}),
@@ -263,7 +286,468 @@ app.layout = html.Div([
 ],id ='page', className='ten columns offset-by-one'
 )
 
-########################################################
+
+page2 = html.Div([ 
+    
+    # CSS
+    html.Link(
+        rel='stylesheet',
+        href='/static/stylesheet.css'
+    ),
+
+    # Live mode or not according to end_date
+    # Real time control
+    dcc.Interval(
+        id='interval-log-update',
+        interval=10*1000, # in milliseconds
+        n_intervals=0
+    ),
+    dcc.Interval(
+        id='interval-info-update',
+        interval=1*1000*60*60*24, # in milliseconds
+        n_intervals=0
+    ),
+
+    # Hidden Div Storing JSON-serialized dataframe of run log
+    html.Div([
+        html.Div(id='before-log-storage', style={'display': 'none'}),
+        html.Div(id='today-log-storage', style={'display': 'none'}),
+        html.Div(id='today-update-storage', style={'display': 'none'}),
+
+        dcc.Store(id='num-before-storage', storage_type='memory'),
+        dcc.Store(id='num-today-storage', storage_type='memory'),
+        
+        dcc.Store(id='experiments-storage',storage_type='session'),
+        dcc.Store(id='years-storage',storage_type='session'),
+        dcc.Store(id='channels-storage',storage_type='session'),
+    ], id = 'cache'
+    ),
+    
+    html.Div(
+        [
+            html.H1(
+                'Fridge Viewer',
+                className='eight columns',
+            ),
+            html.Img(
+                src="https://rayonde.github.io/external_image/Logo_LKB.png",
+                
+                style={ 'height': '70px',
+                'float': 'right',
+                'position': 'relative',
+                },
+            ),
+           
+        ], className='row' , style={'margin-top': 5, 'margin-bottom': 5,}
+    ),
+    
+    html.Div([
+        get_menu(),
+    ], className='row' , style={'margin-top': 5, 'margin-bottom': 5,}
+    ),
+
+    html.Div([
+        html.Div([
+            html.Div([
+                html.P('Experiment:',style={}),
+            ]  ,style={}
+            ),
+            html.Div([
+                dcc.Dropdown( id ='experiment',
+                #options=[{'label': i, 'value': i} for i in experiments_auto],
+                multi=False,
+                #value= experiments_auto[0],
+                ),
+            ], style={}
+            ), 
+        ], id='experiment-framework',className='six columns' 
+        ),
+    
+        html.Div([
+            html.Div([
+                html.P('Year:'),
+            ],style={}
+            ), 
+            html.Div([
+                dcc.Dropdown(id='year',
+                #options=[{'label': i, 'value': i} for i in years_auto],
+                multi=False,
+                #value= years_auto[-1],
+                ),
+            ],style={}
+            ), 
+
+        ], id='years-framework', className='six columns'
+        )
+    ],className='row' , style={'margin-top': 5, 'margin-bottom': 5,}
+    ),
+
+    html.Div([
+        
+        html.Div([
+            html.P('Select the signal channel'),
+            # head style
+        ], style={'margin-left': '0px','margin-top': '0px'}
+        ),
+
+        html.Div([    
+            # Channel selection dropdown
+            dcc.Dropdown(id='channels_dropdown',
+                    multi=True,
+            )
+            # channel selection style
+        ]
+        ),
+    ],className='row' , style={'margin-top': 5, 'margin-bottom': 5,}
+    ),
+
+    html.Div([
+        html.Div([
+            html.Div([
+                dcc.Graph(id='temperature-graph')
+            ],style={}
+            )
+        ],id='graph_framework', className ='eight columns',style={'display': 'inline-block'}),
+
+        html.Div([
+            html.Div([
+
+                html.Div([
+                    html.P("Live Data:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
+                    
+                    html.Div(id="div-data-display")
+
+                ],style={'width': '100%', 'margin-bottom': '20px' }
+                ),
+
+                html.Div([
+                    html.Button('Autoscale', 
+                                    id='autoscale', 
+                                    n_clicks_timestamp=0,
+                                    style= {'width': '100%'})
+                ], style={'width': '100%', 'margin-bottom': '20px' }
+                ),
+
+                html.Div([
+                    html.P("Scale:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
+
+                    dcc.DatePickerRange(id='date_range',
+                        end_date = initial_end_date,
+                        start_date = initial_start_date,
+                        min_date_allowed=min_date,
+                        max_date_allowed=max_date,
+                        initial_visible_month=initial_month,
+                    ),
+                ],id='range_framework',style={'width': '100%', 'margin-bottom': '20px'}
+                ),
+                
+
+
+                html.Div([
+                    html.P("Plot Display mode:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
+
+                    dcc.RadioItems(
+                        options=[
+                            {'label': ' Overlap', 'value': 'overlap'},
+                            {'label': ' Timeslider', 'value': 'timeslider'},
+                            {'label': ' Separate', 'value': 'separate'},
+                        ],
+                        value='overlap',
+                        id='display_mode'
+                    ),
+                ], style={'width': '100%', 'margin-bottom': '20px' }
+                ),
+                
+                html.Div([
+                    html.P("Update Speed:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
+
+                    html.Div(id='div-interval-control', children=[
+                        dcc.Dropdown(id='dropdown-interval-control',
+                            options=[
+                                {'label': 'No Updates', 'value': 'no'},
+                                {'label': 'Slow Updates', 'value': 'slow'},
+                                {'label': 'Regular Updates', 'value': 'regular'},
+                                {'label': 'Fast Updates', 'value': 'fast'}
+                            ],
+                            value='no',
+                            style= {'width': '100%'},
+                            clearable=False,
+                            searchable=False
+                        )
+                    ]),
+                ], style={'width': '100%', 'margin-bottom': '20px' }
+                ),
+
+                html.Div([
+                    html.P("Number of data points:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
+                    
+                    html.Div(id="div-num-display")
+
+                ],style={'width': '100%', 'margin-bottom': '20px' }
+                ),
+                
+            ],style={       'height':'100%', 
+                            'padding': 15,  
+                            'borderRadius': 5, 
+                            'border': 'thin lightgrey solid'})
+        ],id='select_framework', className ='four columns', style={
+                            'height':'100%', 
+                            'display': 'inline-block',
+                            'float': 'right',}
+        )
+    ],className='row', style={'margin-top': 5, 'margin-bottom': 5,}
+    ),
+        
+],id ='page', className='ten columns offset-by-one'
+)
+
+
+page3 = html.Div([ 
+    
+    # CSS
+    html.Link(
+        rel='stylesheet',
+        href='/static/stylesheet.css'
+    ),
+
+    # Live mode or not according to end_date
+    # Real time control
+    dcc.Interval(
+        id='interval-log-update',
+        interval=10*1000, # in milliseconds
+        n_intervals=0
+    ),
+    dcc.Interval(
+        id='interval-info-update',
+        interval=1*1000*60*60*24, # in milliseconds
+        n_intervals=0
+    ),
+
+    # Hidden Div Storing JSON-serialized dataframe of run log
+    html.Div([
+        html.Div(id='before-log-storage', style={'display': 'none'}),
+        html.Div(id='today-log-storage', style={'display': 'none'}),
+        html.Div(id='today-update-storage', style={'display': 'none'}),
+
+        dcc.Store(id='num-before-storage', storage_type='memory'),
+        dcc.Store(id='num-today-storage', storage_type='memory'),
+        
+        dcc.Store(id='experiments-storage',storage_type='session'),
+        dcc.Store(id='years-storage',storage_type='session'),
+        dcc.Store(id='channels-storage',storage_type='session'),
+    ], id = 'cache'
+    ),
+    
+    html.Div(
+        [
+            html.H1(
+                'Fridge Viewer',
+                className='eight columns',
+            ),
+            html.Img(
+                src="https://rayonde.github.io/external_image/Logo_LKB.png",
+                
+                style={ 'height': '70px',
+                'float': 'right',
+                'position': 'relative',
+                },
+            ),
+           
+        ], className='row' , style={'margin-top': 5, 'margin-bottom': 5,}
+    ),
+    
+    html.Div([
+        get_menu(),
+    ], className='row' , style={'margin-top': 5, 'margin-bottom': 5,}
+    ),
+
+    html.Div([
+        html.Div([
+            html.Div([
+                html.P('Experiment:',style={}),
+            ]  ,style={}
+            ),
+            html.Div([
+                dcc.Dropdown( id ='experiment',
+                #options=[{'label': i, 'value': i} for i in experiments_auto],
+                multi=False,
+                #value= experiments_auto[0],
+                ),
+            ], style={}
+            ), 
+        ], id='experiment-framework',className='six columns' 
+        ),
+    
+        html.Div([
+            html.Div([
+                html.P('Year:'),
+            ],style={}
+            ), 
+            html.Div([
+                dcc.Dropdown(id='year',
+                #options=[{'label': i, 'value': i} for i in years_auto],
+                multi=False,
+                #value= years_auto[-1],
+                ),
+            ],style={}
+            ), 
+
+        ], id='years-framework', className='six columns'
+        )
+    ],className='row' , style={'margin-top': 5, 'margin-bottom': 5,}
+    ),
+
+    html.Div([
+        
+        html.Div([
+            html.P('Select the signal channel'),
+            # head style
+        ], style={'margin-left': '0px','margin-top': '0px'}
+        ),
+
+        html.Div([    
+            # Channel selection dropdown
+            dcc.Dropdown(id='channels_dropdown',
+                    multi=True,
+            )
+            # channel selection style
+        ]
+        ),
+    ],className='row' , style={'margin-top': 5, 'margin-bottom': 5,}
+    ),
+
+    html.Div([
+        html.Div([
+            html.Div([
+                dcc.Graph(id='temperature-graph')
+            ],style={}
+            )
+        ],id='graph_framework', className ='eight columns',style={'display': 'inline-block'}),
+
+        html.Div([
+            html.Div([
+
+                html.Div([
+                    html.P("Live Data:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
+                    
+                    html.Div(id="div-data-display")
+
+                ],style={'width': '100%', 'margin-bottom': '20px' }
+                ),
+
+                html.Div([
+                    html.Button('Autoscale', 
+                                    id='autoscale', 
+                                    n_clicks_timestamp=0,
+                                    style= {'width': '100%'})
+                ], style={'width': '100%', 'margin-bottom': '20px' }
+                ),
+
+                html.Div([
+                    html.P("Scale:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
+
+                    dcc.DatePickerRange(id='date_range',
+                        end_date = initial_end_date,
+                        start_date = initial_start_date,
+                        min_date_allowed=min_date,
+                        max_date_allowed=max_date,
+                        initial_visible_month=initial_month,
+                    ),
+                ],id='range_framework',style={'width': '100%', 'margin-bottom': '20px'}
+                ),
+                
+
+
+                html.Div([
+                    html.P("Plot Display mode:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
+
+                    dcc.RadioItems(
+                        options=[
+                            {'label': ' Overlap', 'value': 'overlap'},
+                            {'label': ' Timeslider', 'value': 'timeslider'},
+                            {'label': ' Separate', 'value': 'separate'},
+                        ],
+                        value='overlap',
+                        id='display_mode'
+                    ),
+                ], style={'width': '100%', 'margin-bottom': '20px' }
+                ),
+                
+                html.Div([
+                    html.P("Update Speed:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
+
+                    html.Div(id='div-interval-control', children=[
+                        dcc.Dropdown(id='dropdown-interval-control',
+                            options=[
+                                {'label': 'No Updates', 'value': 'no'},
+                                {'label': 'Slow Updates', 'value': 'slow'},
+                                {'label': 'Regular Updates', 'value': 'regular'},
+                                {'label': 'Fast Updates', 'value': 'fast'}
+                            ],
+                            value='no',
+                            style= {'width': '100%'},
+                            clearable=False,
+                            searchable=False
+                        )
+                    ]),
+                ], style={'width': '100%', 'margin-bottom': '20px' }
+                ),
+
+                html.Div([
+                    html.P("Number of data points:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
+                    
+                    html.Div(id="div-num-display")
+
+                ],style={'width': '100%', 'margin-bottom': '20px' }
+                ),
+                
+            ],style={       'height':'100%', 
+                            'padding': 15,  
+                            'borderRadius': 5, 
+                            'border': 'thin lightgrey solid'})
+        ],id='select_framework', className ='four columns', style={
+                            'height':'100%', 
+                            'display': 'inline-block',
+                            'float': 'right',}
+        )
+    ],className='row', style={'margin-top': 5, 'margin-bottom': 5,}
+    ),
+        
+],id ='page', className='ten columns offset-by-one'
+)
+
+
+# Create app layout
+# Describe the layout, or the UI, of the app
+app.layout = html.Div([
+    dcc.Location(id='url', refresh=False),
+    html.Div(id='page-content', children = page1)
+])
+
+#########################################################
+#
+#
+#
+#
+#########################################################
+
+# Update page
+@app.callback(dash.dependencies.Output('page-content', 'children'),
+              [dash.dependencies.Input('url', 'pathname')])
+def display_page(pathname):
+    if pathname == '/opto' or pathname == '/' or pathname == '/opto/cryogenic-fridge':
+        return page2
+    elif pathname == '/opto/membrance':
+
+        path_lab = path_lab2
+        return page2
+    elif pathname == '/opto/micro-cavity':
+
+        path_lab = path_lab3
+        return page3
+    else:
+        return no_update
+
 
 # Get static CSS
 @app.server.route('/static/<path:path>')
