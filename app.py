@@ -23,9 +23,9 @@ from plotly import tools
 app = dash.Dash(__name__)
 
 # external CSS
-#https://cdnjs.cloudflare.com/ajax/libs/normalize/7.0.0/normalize.min.css
-#https://codepen.io/chriddyp/pen/bWLwgP.css
-# app.css.append_css({'external_url': 'https://rayonde.github.io/external_css/fridge.css'})  
+# https://cdnjs.cloudflare.com/ajax/libs/normalize/7.0.0/normalize.min.css
+# https://codepen.io/chriddyp/pen/bWLwgP.css
+app.css.append_css({'external_url': 'https://rayonde.github.io/external_css/stylesheet.css'})  
 
 app.css.config.serve_locally = True
 app.scripts.config.serve_locally = True
@@ -60,17 +60,249 @@ def get_menu():
     menu = html.Div([
         html.Div([
             dcc.Link('Cryogenic Fridge', href='/opto/cryogenic-fridge', className='tab first',),
-        ],className='three columns', style={'display': 'inline-block'}),
+        ],className='two columns', style={'display': 'inline-block'}),
         html.Div([
             dcc.Link('Membrance', href='/opto/membrance', className='tab',),
-        ],className='three columns', style={'display': 'inline-block'}),
+        ],className='two columns', style={'display': 'inline-block'}),
         html.Div([
             dcc.Link(' Micro cavity', href='/opto/micro-cavity', className='tab',),
-        ],className='three columns', style={'display': 'inline-block'}),
+        ],className='two columns', style={'display': 'inline-block'}),
     
-    ],style={'width': '100%', 'display': 'inline-block'})
+    ],style={ 'display': 'inline-block'})
     return menu
 
+
+
+# returns modal (hidden by default)
+def modal():
+    return html.Div(
+        html.Div(  
+            html.Div([
+                    # modal header
+                    html.Div(
+                        [
+                            html.Span(
+                                "Configuration",
+                                style={
+                                    "color": "#506784",
+                                    "fontWeight": "bold",
+                                    "fontSize": "20",
+                                },
+                            ),
+                            html.Span(
+                                "×",
+                                id="configuration_modal_close",
+                                n_clicks=0,
+                                style={
+                                    "float": "right",
+                                    "cursor": "pointer",
+                                    "margin-top": "0",
+                                    "margin-bottom": "17",
+                                },
+                            ),
+                        ],
+                        className="row",
+                        style={"borderBottom": "1px solid #C8D4E3"},
+                    ),
+
+
+                    # modal form 
+                    html.Div([
+                        
+                        html.Div([      
+                            # left div
+                            html.Div(
+                                [
+                                    html.P(
+                                        [
+                                            "Name"
+                                        ],
+                                        style={
+                                            "float": "left",
+                                            "margin-top": "4",
+                                            "margin-bottom": "2",
+                                        },
+                                        className="row",
+                                    ),
+                                    dcc.Input(
+                                        id="new_configuration_name",
+                                        placeholder="Name of user",
+                                        type="text",
+                                        value="",
+                                        style={"width": "100%"},
+                                    ),
+
+                                    html.P(
+                                        [
+                                            "Data mode"
+                                        ],
+                                        style={
+                                            "textAlign": "left",
+                                            "margin-bottom": "2",
+                                            "margin-top": "4",
+                                        },
+                                    ),
+                                    dcc.Dropdown(
+                                        id="new_configuration_mode",
+                                        options=[
+                                            {
+                                                "label": "Live mode",
+                                                "value": "Live mode",
+                                            },
+                                            {
+                                                "label": "No update",
+                                                "value": "No update",
+                                            },
+                                        ],
+                                        clearable=False,
+                                        value="Live mode",
+                                    ),
+
+                                    html.P(
+                                        [
+                                            "Figure setting"
+                                        ],
+                                        style={
+                                            "textAlign": "left",
+                                            "margin-bottom": "2",
+                                            "margin-top": "4",
+                                        },
+                                    ),
+                                    dcc.Dropdown(
+                                        id="new_configuration_figure",
+                                        options=[
+                                            {
+                                                "label": "Single plot",
+                                                "value": "Single plot",
+                                            },
+                                            {
+                                                "label": "Mutiple plots",
+                                                "value": "Mutiple plots",
+                                            },
+                                        ],
+                                        clearable=False,
+                                        value="Single plot",
+                                    ),
+
+                                ],
+                                className="six columns",
+                                style={"padding-right": "15"},
+                            ),
+                            
+                            # right div
+                            html.Div(
+                                [
+                                    html.P(
+                                        "Experiment",
+                                        style={
+                                            "textAlign": "left",
+                                            "marginBottom": "2",
+                                            "marginTop": "4",
+                                        },
+                                    ),
+                                    dcc.Dropdown(
+                                        id="new_configuration_exp",
+                                        options=[],
+                                    ),
+
+                                    html.P(
+                                        "Year",
+                                        style={
+                                            "textAlign": "left",
+                                            "marginBottom": "2",
+                                            "marginTop": "4",
+                                        },
+                                    ),
+                                    dcc.Dropdown(
+                                        id="new_configuration_year",
+                                        options=[],
+                                    ),
+                                    
+                                    
+                                ],
+                                className="six columns",
+                                style={"paddingLeft": "15"},
+                            ),
+                        ],className="row",
+                        ),
+                        
+                        # large div
+                        html.Div([
+                            html.P(
+                                    [
+                                        "Data path"
+                                    ],
+                                    style={
+                                        "float": "left",
+                                        "margin-top": "4",
+                                        "margin-bottom": "2",
+                                    },
+                                    className="row",
+                                ),
+                                dcc.Input(
+                                    id="new_configuration_path",
+                                    placeholder="Path of dataset",
+                                    type="text",
+                                    value="",
+                                    style={"width": "100%"},
+                                ),
+
+                                html.P(
+                                    [
+                                        "Channel"
+                                    ],
+                                    style={
+                                        "textAlign": "left",
+                                        "margin-bottom": "2",
+                                        "margin-top": "4",
+                                    },
+                                ),
+                                dcc.Dropdown(
+                                    id="new_configuration_channel",
+                                    options=[],
+                                ),
+                        ],className="row",
+                        style={"margin-top": "5"},),
+                    ]
+                    ),
+
+                    # submit button
+                    html.Div([
+                        html.Span(
+                        "Submit",
+                        id="submit_new_configuration",
+                        n_clicks=0,
+                        className="button button-primary",
+                        
+                    ),
+                    ], style={'margin-top': 5})
+                
+                    
+            ],className="modal-content", style={"textAlign": "center"},
+            )
+        ), id="configuration_modal", style={"display": "none"},
+    )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#####################################################################################
 
 page1 = html.Div([ 
     
@@ -108,6 +340,8 @@ page1 = html.Div([
     ], id = 'cache'
     ),
     
+    modal(),
+
     html.Div(
         [
             html.H1(
@@ -127,15 +361,42 @@ page1 = html.Div([
     ),
     
     html.Div([
-        get_menu(),
+        
+        
+        html.Div([
+            
+            html.Div([
+                dcc.Dropdown(
+                    options=[
+                        {'label': 'New York City', 'value': 'NYC'},
+                        {'label': 'San Francisco', 'value': 'SF'}
+                    ],
+                    value='MTL'
+                )
+            ],className="", style={"flex": "auto","width" : "100%", "float": "left",'margin-right': 5,}
+            ),
+   
+            html.Div([   
+                html.Span( 'Add Configuration',
+                        id="new_opportunity",
+                        n_clicks=0,
+                        className="button button-primary",
+                        style={"float": "right",}
+                )
+            ]
+            ),
+
+        ],className="four columns", style={"display": "flex","flex-direction": "row", "float": "right",}
+        ),
     ], className='row' , style={'margin-top': 5, 'margin-bottom': 5,}
     ),
+
 
     html.Div([
         html.Div([
             html.Div([
                 html.P('Experiment:',style={}),
-            ]  ,style={}
+        ], className= 'droptitle' ,style={"width": "80px" , "padding": 5,"float": "left", }
             ),
             html.Div([
                 dcc.Dropdown( id ='experiment',
@@ -143,15 +404,15 @@ page1 = html.Div([
                 multi=False,
                 #value= experiments_auto[0],
                 ),
-            ], style={}
+            ], className= 'dropcontent', style={"width": "100%"}
             ), 
-        ], id='experiment-framework',className='six columns' 
+        ], id='experiment-framework',className='six columns',style={"display": "flex","flex-direction": "row",}   
         ),
     
         html.Div([
             html.Div([
                 html.P('Year:'),
-            ],style={}
+            ], className= 'droptitle' ,style={ "width": "80px","padding": 5,"float": "left", }
             ), 
             html.Div([
                 dcc.Dropdown(id='year',
@@ -159,10 +420,10 @@ page1 = html.Div([
                 multi=False,
                 #value= years_auto[-1],
                 ),
-            ],style={}
+            ], className= 'dropcontent', style={"width": "100%"}
             ), 
 
-        ], id='years-framework', className='six columns'
+        ], id='years-framework', className='six columns',style={"display": "flex","flex-direction": "row",}   
         )
     ],className='row' , style={'margin-top': 5, 'margin-bottom': 5,}
     ),
@@ -170,9 +431,9 @@ page1 = html.Div([
     html.Div([
         
         html.Div([
-            html.P('Select the signal channel'),
+            html.P('Channel:'),
             # head style
-        ], style={'margin-left': '0px','margin-top': '0px'}
+        ], className= 'droptitle' ,style={"width": "80px" , "padding": 5,"float": "left", }
         ),
 
         html.Div([    
@@ -181,9 +442,9 @@ page1 = html.Div([
                     multi=True,
             )
             # channel selection style
-        ]
+        ], className= 'dropcontent', style={"width": "100%"}
         ),
-    ],className='row' , style={'margin-top': 5, 'margin-bottom': 5,}
+    ],className='row' , style={"display": "flex","flex-direction": "row",'margin-top': 5, 'margin-bottom': 5,}
     ),
 
     html.Div([
@@ -287,434 +548,10 @@ page1 = html.Div([
 )
 
 
-page2 = html.Div([ 
-    
-    # CSS
-    html.Link(
-        rel='stylesheet',
-        href='/static/stylesheet.css'
-    ),
+page2 = page1
 
-    # Live mode or not according to end_date
-    # Real time control
-    dcc.Interval(
-        id='interval-log-update',
-        interval=10*1000, # in milliseconds
-        n_intervals=0
-    ),
-    dcc.Interval(
-        id='interval-info-update',
-        interval=1*1000*60*60*24, # in milliseconds
-        n_intervals=0
-    ),
+page3 = page1
 
-    # Hidden Div Storing JSON-serialized dataframe of run log
-    html.Div([
-        html.Div(id='before-log-storage', style={'display': 'none'}),
-        html.Div(id='today-log-storage', style={'display': 'none'}),
-        html.Div(id='today-update-storage', style={'display': 'none'}),
-
-        dcc.Store(id='num-before-storage', storage_type='memory'),
-        dcc.Store(id='num-today-storage', storage_type='memory'),
-        
-        dcc.Store(id='experiments-storage',storage_type='session'),
-        dcc.Store(id='years-storage',storage_type='session'),
-        dcc.Store(id='channels-storage',storage_type='session'),
-    ], id = 'cache'
-    ),
-    
-    html.Div(
-        [
-            html.H1(
-                'Fridge Viewer',
-                className='eight columns',
-            ),
-            html.Img(
-                src="https://rayonde.github.io/external_image/Logo_LKB.png",
-                
-                style={ 'height': '70px',
-                'float': 'right',
-                'position': 'relative',
-                },
-            ),
-           
-        ], className='row' , style={'margin-top': 5, 'margin-bottom': 5,}
-    ),
-    
-    html.Div([
-        get_menu(),
-    ], className='row' , style={'margin-top': 5, 'margin-bottom': 5,}
-    ),
-
-    html.Div([
-        html.Div([
-            html.Div([
-                html.P('Experiment:',style={}),
-            ]  ,style={}
-            ),
-            html.Div([
-                dcc.Dropdown( id ='experiment',
-                #options=[{'label': i, 'value': i} for i in experiments_auto],
-                multi=False,
-                #value= experiments_auto[0],
-                ),
-            ], style={}
-            ), 
-        ], id='experiment-framework',className='six columns' 
-        ),
-    
-        html.Div([
-            html.Div([
-                html.P('Year:'),
-            ],style={}
-            ), 
-            html.Div([
-                dcc.Dropdown(id='year',
-                #options=[{'label': i, 'value': i} for i in years_auto],
-                multi=False,
-                #value= years_auto[-1],
-                ),
-            ],style={}
-            ), 
-
-        ], id='years-framework', className='six columns'
-        )
-    ],className='row' , style={'margin-top': 5, 'margin-bottom': 5,}
-    ),
-
-    html.Div([
-        
-        html.Div([
-            html.P('Select the signal channel'),
-            # head style
-        ], style={'margin-left': '0px','margin-top': '0px'}
-        ),
-
-        html.Div([    
-            # Channel selection dropdown
-            dcc.Dropdown(id='channels_dropdown',
-                    multi=True,
-            )
-            # channel selection style
-        ]
-        ),
-    ],className='row' , style={'margin-top': 5, 'margin-bottom': 5,}
-    ),
-
-    html.Div([
-        html.Div([
-            html.Div([
-                dcc.Graph(id='temperature-graph')
-            ],style={}
-            )
-        ],id='graph_framework', className ='eight columns',style={'display': 'inline-block'}),
-
-        html.Div([
-            html.Div([
-
-                html.Div([
-                    html.P("Live Data:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
-                    
-                    html.Div(id="div-data-display")
-
-                ],style={'width': '100%', 'margin-bottom': '20px' }
-                ),
-
-                html.Div([
-                    html.Button('Autoscale', 
-                                    id='autoscale', 
-                                    n_clicks_timestamp=0,
-                                    style= {'width': '100%'})
-                ], style={'width': '100%', 'margin-bottom': '20px' }
-                ),
-
-                html.Div([
-                    html.P("Scale:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
-
-                    dcc.DatePickerRange(id='date_range',
-                        end_date = initial_end_date,
-                        start_date = initial_start_date,
-                        min_date_allowed=min_date,
-                        max_date_allowed=max_date,
-                        initial_visible_month=initial_month,
-                    ),
-                ],id='range_framework',style={'width': '100%', 'margin-bottom': '20px'}
-                ),
-                
-
-
-                html.Div([
-                    html.P("Plot Display mode:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
-
-                    dcc.RadioItems(
-                        options=[
-                            {'label': ' Overlap', 'value': 'overlap'},
-                            {'label': ' Timeslider', 'value': 'timeslider'},
-                            {'label': ' Separate', 'value': 'separate'},
-                        ],
-                        value='overlap',
-                        id='display_mode'
-                    ),
-                ], style={'width': '100%', 'margin-bottom': '20px' }
-                ),
-                
-                html.Div([
-                    html.P("Update Speed:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
-
-                    html.Div(id='div-interval-control', children=[
-                        dcc.Dropdown(id='dropdown-interval-control',
-                            options=[
-                                {'label': 'No Updates', 'value': 'no'},
-                                {'label': 'Slow Updates', 'value': 'slow'},
-                                {'label': 'Regular Updates', 'value': 'regular'},
-                                {'label': 'Fast Updates', 'value': 'fast'}
-                            ],
-                            value='no',
-                            style= {'width': '100%'},
-                            clearable=False,
-                            searchable=False
-                        )
-                    ]),
-                ], style={'width': '100%', 'margin-bottom': '20px' }
-                ),
-
-                html.Div([
-                    html.P("Number of data points:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
-                    
-                    html.Div(id="div-num-display")
-
-                ],style={'width': '100%', 'margin-bottom': '20px' }
-                ),
-                
-            ],style={       'height':'100%', 
-                            'padding': 15,  
-                            'borderRadius': 5, 
-                            'border': 'thin lightgrey solid'})
-        ],id='select_framework', className ='four columns', style={
-                            'height':'100%', 
-                            'display': 'inline-block',
-                            'float': 'right',}
-        )
-    ],className='row', style={'margin-top': 5, 'margin-bottom': 5,}
-    ),
-        
-],id ='page', className='ten columns offset-by-one'
-)
-
-
-page3 = html.Div([ 
-    
-    # CSS
-    html.Link(
-        rel='stylesheet',
-        href='/static/stylesheet.css'
-    ),
-
-    # Live mode or not according to end_date
-    # Real time control
-    dcc.Interval(
-        id='interval-log-update',
-        interval=10*1000, # in milliseconds
-        n_intervals=0
-    ),
-    dcc.Interval(
-        id='interval-info-update',
-        interval=1*1000*60*60*24, # in milliseconds
-        n_intervals=0
-    ),
-
-    # Hidden Div Storing JSON-serialized dataframe of run log
-    html.Div([
-        html.Div(id='before-log-storage', style={'display': 'none'}),
-        html.Div(id='today-log-storage', style={'display': 'none'}),
-        html.Div(id='today-update-storage', style={'display': 'none'}),
-
-        dcc.Store(id='num-before-storage', storage_type='memory'),
-        dcc.Store(id='num-today-storage', storage_type='memory'),
-        
-        dcc.Store(id='experiments-storage',storage_type='session'),
-        dcc.Store(id='years-storage',storage_type='session'),
-        dcc.Store(id='channels-storage',storage_type='session'),
-    ], id = 'cache'
-    ),
-    
-    html.Div(
-        [
-            html.H1(
-                'Fridge Viewer',
-                className='eight columns',
-            ),
-            html.Img(
-                src="https://rayonde.github.io/external_image/Logo_LKB.png",
-                
-                style={ 'height': '70px',
-                'float': 'right',
-                'position': 'relative',
-                },
-            ),
-           
-        ], className='row' , style={'margin-top': 5, 'margin-bottom': 5,}
-    ),
-    
-    html.Div([
-        get_menu(),
-    ], className='row' , style={'margin-top': 5, 'margin-bottom': 5,}
-    ),
-
-    html.Div([
-        html.Div([
-            html.Div([
-                html.P('Experiment:',style={}),
-            ]  ,style={}
-            ),
-            html.Div([
-                dcc.Dropdown( id ='experiment',
-                #options=[{'label': i, 'value': i} for i in experiments_auto],
-                multi=False,
-                #value= experiments_auto[0],
-                ),
-            ], style={}
-            ), 
-        ], id='experiment-framework',className='six columns' 
-        ),
-    
-        html.Div([
-            html.Div([
-                html.P('Year:'),
-            ],style={}
-            ), 
-            html.Div([
-                dcc.Dropdown(id='year',
-                #options=[{'label': i, 'value': i} for i in years_auto],
-                multi=False,
-                #value= years_auto[-1],
-                ),
-            ],style={}
-            ), 
-
-        ], id='years-framework', className='six columns'
-        )
-    ],className='row' , style={'margin-top': 5, 'margin-bottom': 5,}
-    ),
-
-    html.Div([
-        
-        html.Div([
-            html.P('Select the signal channel'),
-            # head style
-        ], style={'margin-left': '0px','margin-top': '0px'}
-        ),
-
-        html.Div([    
-            # Channel selection dropdown
-            dcc.Dropdown(id='channels_dropdown',
-                    multi=True,
-            )
-            # channel selection style
-        ]
-        ),
-    ],className='row' , style={'margin-top': 5, 'margin-bottom': 5,}
-    ),
-
-    html.Div([
-        html.Div([
-            html.Div([
-                dcc.Graph(id='temperature-graph')
-            ],style={}
-            )
-        ],id='graph_framework', className ='eight columns',style={'display': 'inline-block'}),
-
-        html.Div([
-            html.Div([
-
-                html.Div([
-                    html.P("Live Data:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
-                    
-                    html.Div(id="div-data-display")
-
-                ],style={'width': '100%', 'margin-bottom': '20px' }
-                ),
-
-                html.Div([
-                    html.Button('Autoscale', 
-                                    id='autoscale', 
-                                    n_clicks_timestamp=0,
-                                    style= {'width': '100%'})
-                ], style={'width': '100%', 'margin-bottom': '20px' }
-                ),
-
-                html.Div([
-                    html.P("Scale:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
-
-                    dcc.DatePickerRange(id='date_range',
-                        end_date = initial_end_date,
-                        start_date = initial_start_date,
-                        min_date_allowed=min_date,
-                        max_date_allowed=max_date,
-                        initial_visible_month=initial_month,
-                    ),
-                ],id='range_framework',style={'width': '100%', 'margin-bottom': '20px'}
-                ),
-                
-
-
-                html.Div([
-                    html.P("Plot Display mode:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
-
-                    dcc.RadioItems(
-                        options=[
-                            {'label': ' Overlap', 'value': 'overlap'},
-                            {'label': ' Timeslider', 'value': 'timeslider'},
-                            {'label': ' Separate', 'value': 'separate'},
-                        ],
-                        value='overlap',
-                        id='display_mode'
-                    ),
-                ], style={'width': '100%', 'margin-bottom': '20px' }
-                ),
-                
-                html.Div([
-                    html.P("Update Speed:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
-
-                    html.Div(id='div-interval-control', children=[
-                        dcc.Dropdown(id='dropdown-interval-control',
-                            options=[
-                                {'label': 'No Updates', 'value': 'no'},
-                                {'label': 'Slow Updates', 'value': 'slow'},
-                                {'label': 'Regular Updates', 'value': 'regular'},
-                                {'label': 'Fast Updates', 'value': 'fast'}
-                            ],
-                            value='no',
-                            style= {'width': '100%'},
-                            clearable=False,
-                            searchable=False
-                        )
-                    ]),
-                ], style={'width': '100%', 'margin-bottom': '20px' }
-                ),
-
-                html.Div([
-                    html.P("Number of data points:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
-                    
-                    html.Div(id="div-num-display")
-
-                ],style={'width': '100%', 'margin-bottom': '20px' }
-                ),
-                
-            ],style={       'height':'100%', 
-                            'padding': 15,  
-                            'borderRadius': 5, 
-                            'border': 'thin lightgrey solid'})
-        ],id='select_framework', className ='four columns', style={
-                            'height':'100%', 
-                            'display': 'inline-block',
-                            'float': 'right',}
-        )
-    ],className='row', style={'margin-top': 5, 'margin-bottom': 5,}
-    ),
-        
-],id ='page', className='ten columns offset-by-one'
-)
 
 
 # Create app layout
@@ -730,6 +567,63 @@ app.layout = html.Div([
 #
 #
 #########################################################
+# hide/show modal
+@app.callback(Output("configuration_modal", "style"), 
+            [Input("new_opportunity", "n_clicks"),])
+def display_configuration_modal_callback(n):
+    if n > 0:
+        return {"display": "block"}
+    return {"display": "none"}
+
+
+# # # reset to 0 add button n_clicks property
+@app.callback(
+    Output("new_opportunity", "n_clicks"),
+    [
+        Input("configuration_modal_close", "n_clicks"),
+        Input("submit_new_configuration", "n_clicks"),
+    ],
+)
+def close_modal_callback(n, n2):
+    return 0
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # Update page
 @app.callback(dash.dependencies.Output('page-content', 'children'),
@@ -987,7 +881,7 @@ def get_before_log(start_date, end_date, exp, data_channel, before, num_before):
                             date_list_temp.append(datetime.strptime(date, r'%Y-%m-%d'))
                         
                         start_date_old = min(date_list_temp)
-                        end_date_old = maxi(date_list_temp)
+                        end_date_old = max(date_list_temp)
                         date_list_old = date_list_temp
                     else:
                         date_list_old = []
