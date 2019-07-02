@@ -2,6 +2,7 @@
 # Import required libraries
 import os
 import pandas as pd
+import json
 from flask import Flask
 from flask_cors import CORS
 from datetime import timedelta, date, time, datetime
@@ -43,18 +44,112 @@ initial_month = datetime(2019, 4, 13)
 initial_end_date = datetime(2019, 4, 14)
 initial_start_date = datetime(2019, 4, 13)
 path_data_auto = r'LOGS\DummyFridge\data'
-#path_lab = r'LOGS'
-#path_lab = r'Z:\ManipMembranes'
+
 global path_lab
-path_lab = None
+path_lab = r"C:\Users\YIFAN\Documents\GitHub\LOGS"
 path_lab2 = path_lab
 path_lab3 = path_lab
 color_list = ["#5E0DAC", '#FF4F00', '#375CB1', '#FF7400', '#FFF400', '#FF0056']
 
 
+
+
+#########################################################
+# General Functions
+#
+#
+#
+#########################################################
+
+def update_jsonfile(path, key, value, valuetype=str):
+    # if not exist, create an empty json file 
+    if not os.path.isfile(path):
+         with open(path, 'w') as jsonfile:
+            jsonfile.write(json.dumps({}))
+    
+    # Open the JSON file for reading
+    with open(path, 'r+') as jsonfile:
+        data = json.load(jsonfile) 
+        # update data
+        
+        if key in data.keys():
+            if valuetype is str:
+                if value not in data[key]:
+                    data[key].append(value)
+            elif valuetype is dict:
+                data[key].update(value)
+            elif valuetype is list:
+                data[key].extend(value)
+        else:
+            if valuetype is dict:
+                data.update({key: value})
+            elif valuetype is str:
+                data.update({key: [value]})
+            elif valuetype is list:
+                data.update({key: value})
+
+        jsonfile.seek(0)  # rewind
+        jsonfile.write(json.dumps(data, indent=4))
+
+        # this deals with the case where the new data is smaller than the previous.
+        jsonfile.truncate()
+
+def write_channels_config(path):
+    try:
+        date_list = get_folder_names(all_folder_paths(path))
+    except FileNotFoundError as error:
+        print(error)
+        print('Cannot get the year list')
+    else:
+        for single_date_str in date_list: 
+            channels_update = set()
+            try:
+                path_log = all_file_paths(path + '\\'+ single_date_str, '.log')
+                log = get_channels(path_log)
+                channels_update.update(set(log))
+            except:
+                print('No log files')
+            try:
+                path_chan = all_file_paths(path + '\\'+ single_date_str, '.chan')
+                chan = get_channels(path_chan)
+                channels_update.update(set(chan))
+            except:
+                print('No chan files')
+            
+            channels_update = list(channels_update)
+            update_jsonfile(path + r'\channels.json', single_date_str, channels_update, valuetype=list)
+    return None
+
+def write_info(path_lab):
+    try:
+        experiment_update = get_folder_names(all_folder_paths(path_lab))
+    except FileNotFoundError as error:
+        print(error)
+        print('Cannot get the experiment list')
+    else:
+        for exp in experiment_update:
+            update_jsonfile(path_lab + r'\exp_info.json', 'experiments', exp)
+    
+            try:
+                years_update = get_folder_names(all_folder_paths(path_lab + '\\' + exp + r'\data'))
+            except FileNotFoundError as error:
+                print(error)
+                print('Cannot get the year list')
+            else:
+                temp = {}
+                temp[exp] = years_update
+                update_jsonfile(path_lab + r'\exp_info.json', 'years', temp, valuetype= dict)  
+    return None    
+        
+#########################################################
+# Layout Functions
+#
+#
+#
+#########################################################
+
 def create_cache_div(name, info):
     return dcc.Store(id='{0}-log-storage'.format(name), storage_type='memory', data = info)
-
 
 def get_menu():
     menu = html.Div([
@@ -70,7 +165,6 @@ def get_menu():
     
     ],style={ 'display': 'inline-block'})
     return menu
-
 
 
 # returns modal (hidden by default)
@@ -176,8 +270,8 @@ def modal():
                                                 "value": "Single plot",
                                             },
                                             {
-                                                "label": "Mutiple plots",
-                                                "value": "Mutiple plots",
+                                                "label": "Multiple plots",
+                                                "value": "Multiple plots",
                                             },
                                         ],
                                         clearable=False,
@@ -230,7 +324,7 @@ def modal():
                         html.Div([
                             html.P(
                                     [
-                                        "Data path"
+                                        "Path of dataset"
                                     ],
                                     style={
                                         "float": "left",
@@ -241,9 +335,9 @@ def modal():
                                 ),
                                 dcc.Input(
                                     id="new_configuration_path",
-                                    placeholder="Path of dataset",
+                                    #placeholder="Path of dataset",
                                     type="text",
-                                    value="",
+                                    value=path_lab,
                                     style={"width": "100%"},
                                 ),
 
@@ -260,6 +354,7 @@ def modal():
                                 dcc.Dropdown(
                                     id="new_configuration_channel",
                                     options=[],
+                                    multi = True
                                 ),
                         ],className="row",
                         style={"margin-top": "5"},),
@@ -282,24 +377,6 @@ def modal():
             )
         ), id="configuration_modal", style={"display": "none"},
     )
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 #####################################################################################
@@ -334,9 +411,11 @@ page1 = html.Div([
         dcc.Store(id='num-before-storage', storage_type='memory'),
         dcc.Store(id='num-today-storage', storage_type='memory'),
         
-        dcc.Store(id='experiments-storage',storage_type='session'),
-        dcc.Store(id='years-storage',storage_type='session'),
+        # dcc.Store(id='experiments-storage',storage_type='session'),
+        # dcc.Store(id='years-storage',storage_type='session'),
         dcc.Store(id='channels-storage',storage_type='session'),
+        dcc.Store(id='exp_info',storage_type='session'),
+        dcc.Store(id='user_info',storage_type='session'),
     ], id = 'cache'
     ),
     
@@ -346,7 +425,9 @@ page1 = html.Div([
         [
             html.H1(
                 'Fridge Viewer',
-                className='eight columns',
+                style={ 
+                'float': 'left',
+                },
             ),
             html.Img(
                 src="https://rayonde.github.io/external_image/Logo_LKB.png",
@@ -364,16 +445,22 @@ page1 = html.Div([
         
         
         html.Div([
-            
+            html.Div([
+            html.Span( 'Reset config files',
+                        id="reset_config",
+                        n_clicks=0,
+                        className="button",
+                        style={"float": "right",}
+                ),
+            ], style={'margin-right': 5,}
+            ),
             html.Div([
                 dcc.Dropdown(
-                    options=[
-                        {'label': 'New York City', 'value': 'NYC'},
-                        {'label': 'San Francisco', 'value': 'SF'}
-                    ],
-                    value='MTL'
+                    id="selection_config",
+                    options=[],
+                    value=''
                 )
-            ],className="", style={"flex": "auto","width" : "100%", "float": "left",'margin-right': 5,}
+            ], style={"flex": "auto","width" : "100%", "float": "left",'margin-right': 5,}
             ),
    
             html.Div([   
@@ -386,7 +473,7 @@ page1 = html.Div([
             ]
             ),
 
-        ],className="four columns", style={"display": "flex","flex-direction": "row", "float": "right",}
+        ],className="six columns", style={"display": "flex","flex-direction": "row", "float": "right",}
         ),
     ], className='row' , style={'margin-top': 5, 'margin-bottom': 5,}
     ),
@@ -450,18 +537,26 @@ page1 = html.Div([
     html.Div([
         html.Div([
             html.Div([
+
+                html.Div(id="div-data-display")
+
+                ],style={'width': '100%', 'margin-bottom': '20px' }
+                ),
+
+            html.Div([
                 dcc.Graph(id='temperature-graph')
             ],style={}
             )
-        ],id='graph_framework', className ='eight columns',style={'display': 'inline-block'}),
+        ],id='graph_framework', className ='nine columns',style={'display': 'inline-block'}),
 
         html.Div([
             html.Div([
 
                 html.Div([
-                    html.P("Live Data:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
-                    
-                    html.Div(id="div-data-display")
+                     html.Button('Real-time data', 
+                                    id='data_set', 
+                                    n_clicks=0,
+                                    style= {'width': '100%'})
 
                 ],style={'width': '100%', 'margin-bottom': '20px' }
                 ),
@@ -469,7 +564,7 @@ page1 = html.Div([
                 html.Div([
                     html.Button('Autoscale', 
                                     id='autoscale', 
-                                    n_clicks_timestamp=0,
+                                    n_clicks=0,
                                     style= {'width': '100%'})
                 ], style={'width': '100%', 'margin-bottom': '20px' }
                 ),
@@ -536,7 +631,7 @@ page1 = html.Div([
                             'padding': 15,  
                             'borderRadius': 5, 
                             'border': 'thin lightgrey solid'})
-        ],id='select_framework', className ='four columns', style={
+        ],id='select_framework', className ='three columns', style={
                             'height':'100%', 
                             'display': 'inline-block',
                             'float': 'right',}
@@ -576,7 +671,7 @@ def display_configuration_modal_callback(n):
     return {"display": "none"}
 
 
-# # # reset to 0 add button n_clicks property
+# reset to 0 add button n_clicks property
 @app.callback(
     Output("new_opportunity", "n_clicks"),
     [
@@ -587,43 +682,13 @@ def display_configuration_modal_callback(n):
 def close_modal_callback(n, n2):
     return 0
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+# reset to 0 submit button n_clicks property
+@app.callback(
+    Output("submit_new_configuration", "n_clicks"),
+    [Input("configuration_modal_close", "n_clicks"),],
+    [State("submit_new_configuration", "n_clicks")])
+def close_modal_callback(n, n2):
+    return 0
 
 # Update page
 @app.callback(dash.dependencies.Output('page-content', 'children'),
@@ -648,73 +713,235 @@ def display_page(pathname):
 def static_file(path):
     static_folder = os.path.join(os.getcwd(), 'static')
     return send_from_directory(static_folder, path)
+#########################################################
+#
+#
+#
+#
+#########################################################
+
+@app.callback([Output('new_configuration_exp', 'options'), Output('new_configuration_exp', 'value')],
+              [Input('exp_info','data')])
+def new_experiments(info):
+    if info:  
+        experiments = info['experiments']
+        temp = {}
+        temp['experiments'] = experiments
+        
+        return [{'label': i, 'value': i} for i in experiments], experiments[0]
+    else:
+        return no_update, no_update
 
 
-# Get the experiment list automatically every 24h
-@app.callback([Output('experiment', 'options'),
-               Output('experiment', 'value'),
-              Output('experiments-storage','data')],
-              [Input('interval-info-update', 'n_intervals')],
-              [State('experiments-storage','data')])
-def update_experiments(n_intervals, data):
-    if n_intervals is 0:
-        a = {}
+@app.callback([Output('new_configuration_year', 'options'),
+              Output('new_configuration_year', 'value'),],
+              [Input('new_configuration_exp', 'value'), 
+              Input('exp_info','data')],)
+def new_years(exp, info):
+    if exp: 
+        if info:
+            years_update = info['years'][exp] 
+            return [{'label': i, 'value': i} for i in years_update], years_update[-1]
+        else: 
+            return no_update, no_update
+    return no_update, no_update
+
+
+@app.callback([Output('new_configuration_channel', 'options'),
+               Output('new_configuration_channel', 'value'),],
+              [Input('new_configuration_exp', 'value'),
+              Input('new_configuration_year', 'value'),
+              Input('date_range', 'start_date'),
+              Input('date_range', 'end_date')],)
+def new_channels(exp, year, start_date, end_date):
+    if exp is not None and year is not None:    
+        path = path_lab + '\\' + exp + r'\data' + '\\' + year
+        channels_update = set()
+        data = {}
+        
+        # the date interval
         try:
-            experiment_update = get_folder_names(all_folder_paths(path_lab))
-        except FileNotFoundError as error:
+            end_date_td = datetime.strptime(end_date,r'%Y-%m-%d')
+            start_date_td = datetime.strptime(start_date, r'%Y-%m-%d')
+        except TypeError as error:      
             print(error)
-            print('Cannot get the experiment list')
-            return no_update, no_update, no_update
+            print("Start day and end day have wrong filetype.")
         else:
-            data = data or {}
-            a['experiments'] = experiment_update
-            return [{'label': i, 'value': i} for i in experiment_update], experiment_update[0], a
-    return no_update, no_update, no_update
+            date_list_td = datelist(start_date_td, end_date_td) # timedate type
+        
+        if os.path.isfile(path + r'\channels.json'): 
+            pass
+        else:
+            # reset the channel config file
+            write_channels_config(path)  
+        
+        # read channel config file
+        with open(path + r'\channels.json') as jsonfile:
+            data = json.load(jsonfile)     
+        
+        # search all channels in the date interval
+        for date in date_list_td:
+            single_date_str = date.strftime(r'%y-%m-%d')
+            if single_date_str in data.keys():
+                channels_update.update(set(data[single_date_str]))
+            else: 
+                pass
+        
+        channels_update = list(channels_update)
+        data['channels'] = channels_update
+        
+        if channels_update:
+            return [{'label': i, 'value': i} for i in channels_update], channels_update
+        else:
+            return no_update, no_update
+    else:
+        return no_update, no_update
+
+
+
+@app.callback(Output('selection_config', 'options'),
+              [Input('submit_new_configuration', 'n_clicks'),
+              Input('exp_info', 'data')],
+              [State('new_configuration_name', 'value'),
+               State('new_configuration_exp', 'value'),
+              State('new_configuration_year', 'value'),
+              State('new_configuration_mode', 'value'),
+              State('new_configuration_figure', 'value'),
+              State('new_configuration_path', 'value'),
+              State('new_configuration_channel', 'value'),])
+def new_configuration(n, name, exp, year, mode, figure, path, channels):
+    if n>0:
+        data = {} 
+        data['name'] = name
+        data['experiment'] = exp
+        data['year'] = year
+        data['mode'] = mode
+        data['figure'] = figure
+        data['path'] = path
+        data['channels'] = channels
+        update_jsonfile(path_lab + r'\user.json', name, data, valuetype=dict)
+        
+        options = []
+        with open(path_lab + r'\user.json') as jsonfile:
+            data = json.load(jsonfile)
+            options = [{'label': i, 'value': i} for i in data.keys()]
+        return options
+    else: 
+        return no_update
+
+#########################################################
+#
+#
+#
+#
+#########################################################
+# Reset config file  
+# @app.callback(Output('interval-info-update', 'n_intervals'),
+#               [Input('reset_config', 'n_clicks')],)
+# def reset_configuration(n):
+#     if n>0:
+#         # rewrite exp_info.json
+#         write_info(path_lab)
+#         with open(path_lab + r'\exp_info.json', 'r') as json_file:
+#             data = json.load(json_file)
+
+#         # rewrite channels.json
+#         for exp in data['experiments']:
+#             for year in data['years'][exp]:
+#                 path = path = path_lab + '\\' + exp + r'\data' + '\\' + year
+#                 write_channels_config(path)
+#         return  0
+#     return no_update
+
+# Get the experiment information 
+@app.callback(Output('exp_info','data'),
+              [Input('interval-info-update', 'n_intervals')],
+              [State('exp_info','data')])
+def update_exp_info(n_intervals, data):
+    if n_intervals is 0:
+        # read exp information
+        if os.path.isfile(path_lab + r'\exp_info.json'):
+            pass
+        
+        # create exp information 
+        else:
+            write_info(path_lab)
+        
+        with open(path_lab + r'\exp_info.json', 'r') as json_file:
+            data = json.load(json_file)
+                
+        return data
+    else: 
+        return no_update
+
+        
+# Get the experiment list automatically every 24h
+@app.callback([Output('experiment', 'options'), Output('experiment', 'value')],
+              [Input('exp_info','data')])
+def update_experiments(info):
+    if info:  
+        experiments = info['experiments']
+        temp = {}
+        temp['experiments'] = experiments
+        
+        print(experiments)
+        return [{'label': i, 'value': i} for i in experiments], experiments[0]
+    else:
+        return no_update, no_update
+
+# # Information is sotred individually
+# # Get the experiment list automatically every 24h
+# @app.callback([Output('experiment', 'options'),
+#                Output('experiment', 'value'),
+#               Output('experiments-storage','data')],
+#               [Input('interval-info-update', 'n_intervals')],
+#               [State('experiments-storage','data')])
+# def update_experiments(n_intervals, data):
+#     if n_intervals is 0:
+#         a = {}
+#         try:
+#             experiment_update = get_folder_names(all_folder_paths(path_lab))
+#         except FileNotFoundError as error:
+#             print(error)
+#             print('Cannot get the experiment list')
+#             return no_update, no_update, no_update
+#         else:
+#             data = data or {}
+#             a['experiments'] = experiment_update
+#             return [{'label': i, 'value': i} for i in experiment_update], experiment_update[0], a
+#     return no_update, no_update, no_update
+#########################################################
 
 # Get year list automatically
 @app.callback([Output('year', 'options'),
-              Output('year', 'value'),
-               Output('years-storage','data')],
-              [Input('experiment', 'value')],
-              [State('years-storage','data')])
-def update_years(exp, data):
+              Output('year', 'value'),],
+              [Input('experiment', 'value'), 
+              Input('exp_info','data')],)
+def update_years(exp, info):
+    if exp: 
+        if info:
+            years_update = info['years'][exp] 
+            return [{'label': i, 'value': i} for i in years_update], years_update[-1]
+        else: 
+            return no_update, no_update
+    return no_update, no_update
 
-    if exp is not None: 
-        years_update = get_folder_names(all_folder_paths(path_lab + '\\' + exp + r'\data'))
-        data = data or {}
-        data['years'] = years_update
-        return [{'label': i, 'value': i} for i in years_update], years_update[-1], data
-    else: 
-        return no_update, no_update, no_update
+# # Get year list automatically
+# @app.callback([Output('year', 'options'),
+#               Output('year', 'value'),
+#                Output('years-storage','data')],
+#               [Input('experiment', 'value')],
+#               [State('years-storage','data')])
+# def update_years(exp, data):
 
-# Get effective channels list
-# @app.callback([Output('channels_dropdown', 'options'),
-#                Output('channels_dropdown', 'value'),
-#               Output('channels-storage','data')],
-#               [Input('experiment', 'value'),
-#               Input('year', 'value')],
-#               [State('channels-storage','data')])
-# def update_channels(exp, year, data):
-#     data_path = []
-#     data_path_chan = []
-#     try:
-#         path = path_lab + '\\' + exp + r'\data' + '\\' + year
-#         dates = all_folder_paths(path)
-#         data_path = all_file_paths(dates[0], '.log')
-#         data_path_chan = all_file_paths(dates[0], '.chan')
-
-#         data_path = data_path + data_path_chan
-#         channels_update = get_channels(data_path)
-        
+#     if exp is not None: 
+#         years_update = get_folder_names(all_folder_paths(path_lab + '\\' + exp + r'\data'))
 #         data = data or {}
-#         data['channels'] = channels_update
-#         return [{'label': i, 'value': i} for i in channels_update], channels_update[0], data
-
-#     except FileNotFoundError as error:
-#         print(error)
-#         print('Cannot get the channel list')
-#         return no_update, no_update, no_update
-
+#         data['years'] = years_update
+#         return [{'label': i, 'value': i} for i in years_update], years_update[-1], data
+    # else: 
+    #     return no_update, no_update, no_update
+#########################################################
 @app.callback([Output('channels_dropdown', 'options'),
                Output('channels_dropdown', 'value'),
               Output('channels-storage','data')],
@@ -724,50 +951,49 @@ def update_years(exp, data):
               Input('date_range', 'end_date')],
               [State('channels-storage','data')])
 def update_channels(exp, year, start_date, end_date, data):
-    if exp is not None and year is not None: 
+    if exp is not None and year is not None:    
         path = path_lab + '\\' + exp + r'\data' + '\\' + year
         channels_update = set()
-       
-        # get the all possible channels in the interval
+        data = data or {}
+        
+        # the date interval
         try:
-            end_date = datetime.strptime(end_date,r'%Y-%m-%d')
-            start_date = datetime.strptime(start_date, r'%Y-%m-%d')
-            print(end_date)
-            print(start_date)
+            end_date_td = datetime.strptime(end_date,r'%Y-%m-%d')
+            start_date_td = datetime.strptime(start_date, r'%Y-%m-%d')
         except TypeError as error:      
             print(error)
             print("Start day and end day have wrong filetype.")
+        else:
+            date_list_td = datelist(start_date_td, end_date_td) # timedate type
         
-        date_list = datelist(start_date, end_date) # timedate type
+        if os.path.isfile(path + r'\channels.json'): 
+            pass
+        else:
+            # reset the channel config file
+            write_channels_config(path)  
+        
+        # read channel config file
+        with open(path + r'\channels.json') as jsonfile:
+            data = json.load(jsonfile)     
         
         # search all channels in the date interval
-        for date in date_list: 
+        for date in date_list_td:
             single_date_str = date.strftime(r'%y-%m-%d')
-            
-            print(single_date_str)
-            
-            try:
-                path_log = all_file_paths(path + '\\'+ single_date_str, '.log')
-                log = get_channels(path_log)
-                channels_update.update(set(log))
-            except:
-                print('No log files')
-            try:
-                path_chan = all_file_paths(path + '\\'+ single_date_str, '.chan')
-                chan = get_channels(path_chan)
-                channels_update.update(set(chan))
-            except:
-                print('No chan files')
-    
+            if single_date_str in data.keys():
+                channels_update.update(set(data[single_date_str]))
+            else: 
+                pass
+        
         channels_update = list(channels_update)
-        data = data or {}
         data['channels'] = channels_update
+        
         if channels_update:
-            return [{'label': i, 'value': i} for i in channels_update],channels_update, data
+            return [{'label': i, 'value': i} for i in channels_update], channels_update, data
         else:
             return no_update, no_update, no_update
     else:
         return no_update, no_update, no_update
+
 
 # Get effective date range 
 @app.callback([Output('date_range', 'min_date_allowed'),
@@ -781,18 +1007,25 @@ def update_date_range(exp, year):
 
     if exp is not None and year is not None: 
         path = path_lab + '\\' + exp + r'\data' + '\\' + year
-        dates_path = all_folder_paths(path)
         dates = []
-        for date in dates_path :
-            dates.append(datetime.strptime(path_leaf(date),r'%y-%m-%d'))
+        
+        if os.path.isfile(path + r'\channels.json'): 
+            pass
+        else:
+            # reset the channel config file
+            write_channels_config(path)  
+        
+        # read channel config file
+        with open(path + r'\channels.json') as jsonfile:
+            data = json.load(jsonfile)    
+        
+        for date in data.keys():
+            dates.append(datetime.strptime(date,r'%y-%m-%d'))
 
         min_date =min(dates)
         max_date = max(dates)
 
-        month = max_date
-        start_date = max_date 
-
-        return min_date, max_date, month, start_date, max_date
+        return min_date, max_date, max_date, max_date, max_date
     else:
         return no_update, no_update, no_update, no_update, no_update
 
@@ -1131,7 +1364,7 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
     date_list = datelist(start_date, end_date)
   
     if end_date.date() == datetime.today().date(): 
-        # to keep same format for single channel or mutiple channels
+        # to keep same format for single channel or multiple channels
         if not isinstance(selected_dropdown_value, (list,)):
             selected_dropdown_value = [selected_dropdown_value]
         
@@ -1323,7 +1556,7 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
         else:
             return no_update, no_update
     else:
-        # to keep same format for single channel or mutiple channels
+        # to keep same format for single channel or multiple channels
         if not isinstance(selected_dropdown_value, (list,)):
             selected_dropdown_value = [selected_dropdown_value]
         
@@ -1419,7 +1652,7 @@ if __name__ == '__main__':
 
 #     # create empty trace     
 #     trace = []
-#     # to keep same format for single channel or mutiple channels
+#     # to keep same format for single channel or multiple channels
 #     if not isinstance(selected_dropdown_value, (list,)):
 #         selected_dropdown_value = [selected_dropdown_value]
     
