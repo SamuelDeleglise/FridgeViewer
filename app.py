@@ -9,17 +9,19 @@ from datetime import timedelta, date, time, datetime
 import numpy as np
 import sys
 import time
-from data import *
 
-# need to update the latest version
-#######################################################
-import dash #latest version 1.0.0
+import dash # latest version 1.0.0
 from dash import no_update
 from dash.dependencies import Input, Output, State
 import dash_core_components as dcc
 import dash_html_components as html
 import plotly.graph_objs as go
 from plotly import tools
+import dash_table
+import dash_daq as daq
+
+from data import *
+
 
 app = dash.Dash(__name__)
 
@@ -33,33 +35,31 @@ app.scripts.config.serve_locally = True
 
 server = app.server
 CORS(server)
-#######################################################
-
-
-years_auto = ['2019']
-experiments_auto = ['DummyFridge']
-min_date = datetime(2019, 4, 13)
-max_date = datetime.today()
-initial_month = datetime(2019, 4, 13)
-initial_end_date = datetime(2019, 4, 14)
-initial_start_date = datetime(2019, 4, 13)
-path_data_auto = r'LOGS\DummyFridge\data'
-
+####################################################################################
+# Attributes
+#
+#
+#
+####################################################################################
 global path_lab
 path_lab = r"C:\Users\YIFAN\Documents\GitHub\LOGS"
 path_lab2 = path_lab
 path_lab3 = path_lab
+
 color_list = ["#5E0DAC", '#FF4F00', '#375CB1', '#FF7400', '#FFF400', '#FF0056']
 
 
-
-
-#########################################################
+initial_end_date = date.today()
+initial_start_date = date.today()
+min_date = date.today()
+max_date = date.today()
+initial_month = date.today()
+####################################################################################
 # General Functions
 #
 #
 #
-#########################################################
+####################################################################################
 
 def update_jsonfile(path, key, value, valuetype=str):
     # if not exist, create an empty json file 
@@ -140,13 +140,13 @@ def write_info(path_lab):
                 temp[exp] = years_update
                 update_jsonfile(path_lab + r'\exp_info.json', 'years', temp, valuetype= dict)  
     return None    
-        
-#########################################################
+       
+####################################################################################
 # Layout Functions
 #
 #
 #
-#########################################################
+####################################################################################
 
 def create_cache_div(name, info):
     return dcc.Store(id='{0}-log-storage'.format(name), storage_type='memory', data = info)
@@ -165,7 +165,6 @@ def get_menu():
     
     ],style={ 'display': 'inline-block'})
     return menu
-
 
 # returns modal (hidden by default)
 def modal():
@@ -378,11 +377,73 @@ def modal():
         ), id="configuration_modal", style={"display": "none"},
     )
 
-
-#####################################################################################
-
-page1 = html.Div([ 
+# the row element of data display
+def build_value_setter_line(state, channel, num, unit, vmin, vmax, precisioninput=True):
+    if precisioninput ==True:
+        element_num = daq.PrecisionInput(disabled=True,precision=4, value=num, id='value_{}'.format(channel), className='three columns')
+    else:
+        element_num = html.Label(num,id='value_{}'.format(channel), className='three columns'),
     
+    return html.Div(
+        id=channel,
+        children=[
+            daq.Indicator(id='indicator_{}'.format(channel), value=state, color="#00cc96", className='one columns'),   
+            html.Label(channel, className='three columns'),
+            element_num,
+            html.Label(unit, id='unit_{}'.format(channel), className='one columns'),
+            daq.PrecisionInput(id='threshold_min_{}'.format(channel), precision=4, value=vmin, className='two columns'),
+            daq.PrecisionInput(id='threshold_max_{}'.format(channel),precision=4, value=vmax, className='two columns')
+        ],
+        className='row',
+    )
+# a row of elements
+def live_data_manip(dic, data):
+    elements =[html.Div(id='data_title',
+                children=[html.Label('State', className='one columns'),
+                        html.Label('Channel', className='three columns'),
+                        html.Label('Value', className='three columns'),
+                        html.Label('Unit', className='one columns'),
+                        html.Label('Min Threshold', className='two columns'),
+                        html.Label('Max Threshold', className='two columns'),
+                ],className='row',)]
+
+    for channel in dic.keys():
+        if dic[channel]['min']<=data[channel] and data[channel]<=dic[channel]['max']:
+            state = True
+        else:
+            state = False
+        elements.append(build_value_setter_line(state, channel, data[channel], dic[channel]['unit'],dic[channel]['min'],dic[channel]['max']))
+    
+    a = html.Div(id = 'data-content', 
+                 children = elements,
+                 style={ 'height':'100%', 
+                        'padding': 15,  
+                        'borderRadius': 5, 
+                        'border': 'thin lightgrey solid'}  
+        )
+    return a
+
+def get_data_configuratin(path, dic) :
+    if os.path.isfile(path + r'\channels_config.json'): 
+        # read channel config file
+        with open(path + r'\channels_threshold.json') as jsonfile:
+            dic_config = json.load(jsonfile)   
+        return dic_config
+    else:
+        return 
+    
+def update_data_configuration(path, dic):
+    for key in dic.keys():
+           update_jsonfile(path + r'\channels_threshold.json',key, dic[key], valuetype=dict)
+
+
+####################################################################################
+# Layout 
+#
+#
+#
+####################################################################################
+page1 = html.Div([ 
     # CSS
     html.Link(
         rel='stylesheet',
@@ -410,6 +471,8 @@ page1 = html.Div([
 
         dcc.Store(id='num-before-storage', storage_type='memory'),
         dcc.Store(id='num-today-storage', storage_type='memory'),
+        dcc.Store(id='live_data', storage_type='memory'),
+        dcc.Store(id='live-data-configuration', storage_type='memory'),
         
         # dcc.Store(id='experiments-storage',storage_type='session'),
         # dcc.Store(id='years-storage',storage_type='session'),
@@ -464,8 +527,8 @@ page1 = html.Div([
             ),
    
             html.Div([   
-                html.Span( 'Add Configuration',
-                        id="new_opportunity",
+                html.Span('Add Configuration',
+                        id="new_configuration",
                         n_clicks=0,
                         className="button button-primary",
                         style={"float": "right",}
@@ -536,12 +599,9 @@ page1 = html.Div([
 
     html.Div([
         html.Div([
-            html.Div([
-
-                html.Div(id="div-data-display")
-
-                ],style={'width': '100%', 'margin-bottom': '20px' }
-                ),
+            html.Div(id="div-data-display", 
+                     style={'width': '100%', 'margin-bottom': '20px' }
+            ),
 
             html.Div([
                 dcc.Graph(id='temperature-graph')
@@ -553,10 +613,21 @@ page1 = html.Div([
             html.Div([
 
                 html.Div([
-                     html.Button('Real-time data', 
-                                    id='data_set', 
+                     html.Span('Real-time data', 
+                                    id='data-set', 
                                     n_clicks=0,
+                                    className= 'button button-primary', 
                                     style= {'width': '100%'})
+
+                ],style={'width': '100%', 'margin-bottom': '20px' }
+                ),
+
+                html.Div([
+                     html.Span('Store Data Config', 
+                                    id='store-data-config', 
+                                    n_clicks=0,
+                                    className= 'button button-primary', 
+                                    style= {'width': '100%', 'display': 'none'})
 
                 ],style={'width': '100%', 'margin-bottom': '20px' }
                 ),
@@ -620,7 +691,7 @@ page1 = html.Div([
                 ),
 
                 html.Div([
-                    html.P("Number of data points:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
+                    html.P("Number of data points in cache:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
                     
                     html.Div(id="div-num-display")
 
@@ -637,34 +708,26 @@ page1 = html.Div([
                             'float': 'right',}
         )
     ],className='row', style={'margin-top': 5, 'margin-bottom': 5,}
-    ),
-        
+    ),     
 ],id ='page', className='ten columns offset-by-one'
 )
-
-
-page2 = page1
-
-page3 = page1
-
-
 
 # Create app layout
 # Describe the layout, or the UI, of the app
 app.layout = html.Div([
     dcc.Location(id='url', refresh=False),
-    html.Div(id='page-content', children = page1)
+    page1,
 ])
 
-#########################################################
+####################################################################################
+# Layout Display Callback
 #
 #
 #
-#
-#########################################################
+####################################################################################
 # hide/show modal
 @app.callback(Output("configuration_modal", "style"), 
-            [Input("new_opportunity", "n_clicks"),])
+            [Input("new_configuration", "n_clicks"),])
 def display_configuration_modal_callback(n):
     if n > 0:
         return {"display": "block"}
@@ -673,12 +736,9 @@ def display_configuration_modal_callback(n):
 
 # reset to 0 add button n_clicks property
 @app.callback(
-    Output("new_opportunity", "n_clicks"),
-    [
-        Input("configuration_modal_close", "n_clicks"),
-        Input("submit_new_configuration", "n_clicks"),
-    ],
-)
+    Output("new_configuration", "n_clicks"),
+    [Input("configuration_modal_close", "n_clicks"),
+    Input("submit_new_configuration", "n_clicks"),],)
 def close_modal_callback(n, n2):
     return 0
 
@@ -690,36 +750,20 @@ def close_modal_callback(n, n2):
 def close_modal_callback(n, n2):
     return 0
 
-# Update page
-@app.callback(dash.dependencies.Output('page-content', 'children'),
-              [dash.dependencies.Input('url', 'pathname')])
-def display_page(pathname):
-    if pathname == '/opto' or pathname == '/' or pathname == '/opto/cryogenic-fridge':
-        return page2
-    elif pathname == '/opto/membrance':
-
-        path_lab = path_lab2
-        return page2
-    elif pathname == '/opto/micro-cavity':
-
-        path_lab = path_lab3
-        return page3
-    else:
-        return no_update
-
-
+#####################################
 # Get static CSS
 @app.server.route('/static/<path:path>')
 def static_file(path):
     static_folder = os.path.join(os.getcwd(), 'static')
     return send_from_directory(static_folder, path)
-#########################################################
-#
-#
-#
-#
-#########################################################
 
+####################################################################################
+# Configuration Callback
+#
+#
+#
+####################################################################################
+# Configuration data
 @app.callback([Output('new_configuration_exp', 'options'), Output('new_configuration_exp', 'value')],
               [Input('exp_info','data')])
 def new_experiments(info):
@@ -731,7 +775,6 @@ def new_experiments(info):
         return [{'label': i, 'value': i} for i in experiments], experiments[0]
     else:
         return no_update, no_update
-
 
 @app.callback([Output('new_configuration_year', 'options'),
               Output('new_configuration_year', 'value'),],
@@ -745,7 +788,6 @@ def new_years(exp, info):
         else: 
             return no_update, no_update
     return no_update, no_update
-
 
 @app.callback([Output('new_configuration_channel', 'options'),
                Output('new_configuration_channel', 'value'),],
@@ -797,8 +839,6 @@ def new_channels(exp, year, start_date, end_date):
     else:
         return no_update, no_update
 
-
-
 @app.callback(Output('selection_config', 'options'),
               [Input('submit_new_configuration', 'n_clicks'),
               Input('exp_info', 'data')],
@@ -809,7 +849,7 @@ def new_channels(exp, year, start_date, end_date):
               State('new_configuration_figure', 'value'),
               State('new_configuration_path', 'value'),
               State('new_configuration_channel', 'value'),])
-def new_configuration(n, name, exp, year, mode, figure, path, channels):
+def new_configuration(n, data, name, exp, year, mode, figure, path, channels):
     if n>0:
         data = {} 
         data['name'] = name
@@ -829,36 +869,53 @@ def new_configuration(n, name, exp, year, mode, figure, path, channels):
     else: 
         return no_update
 
-#########################################################
-#
-#
-#
-#
-#########################################################
 # Reset config file  
-# @app.callback(Output('interval-info-update', 'n_intervals'),
-#               [Input('reset_config', 'n_clicks')],)
-# def reset_configuration(n):
-#     if n>0:
-#         # rewrite exp_info.json
-#         write_info(path_lab)
-#         with open(path_lab + r'\exp_info.json', 'r') as json_file:
-#             data = json.load(json_file)
+@app.callback(Output('interval-info-update', 'n_intervals'),
+              [Input('reset_config', 'n_clicks')],)
+def reset_configuration(n):
+    if n>0:
+        # rewrite exp_info.json
+        write_info(path_lab)
+        with open(path_lab + r'\exp_info.json', 'r') as json_file:
+            data = json.load(json_file)
 
-#         # rewrite channels.json
-#         for exp in data['experiments']:
-#             for year in data['years'][exp]:
-#                 path = path = path_lab + '\\' + exp + r'\data' + '\\' + year
-#                 write_channels_config(path)
-#         return  0
-#     return no_update
+        # rewrite channels.json
+        for exp in data['experiments']:
+            for year in data['years'][exp]:
+                path = path_lab + '\\' + exp + r'\data' + '\\' + year
+                write_channels_config(path)
+        return  0
+    return no_update
 
+####################################################################################
+# Data Callback
+#
+#
+#
+####################################################################################
 # Get the experiment information 
 @app.callback(Output('exp_info','data'),
               [Input('interval-info-update', 'n_intervals')],
               [State('exp_info','data')])
 def update_exp_info(n_intervals, data):
+    # 0: the first implementation
     if n_intervals is 0:
+
+        # rewrite exp_info.json
+        write_info(path_lab)
+        with open(path_lab + r'\exp_info.json', 'r') as json_file:
+            data = json.load(json_file)
+
+        # rewrite channels.json
+        for exp in data['experiments']:
+            for year in data['years'][exp]:
+                path = path_lab + '\\' + exp + r'\data' + '\\' + year
+                write_channels_config(path)
+        
+        return data
+    # 1: the configuration file is reset
+    elif n_intervals is 1:
+
         # read exp information
         if os.path.isfile(path_lab + r'\exp_info.json'):
             pass
@@ -868,8 +925,7 @@ def update_exp_info(n_intervals, data):
             write_info(path_lab)
         
         with open(path_lab + r'\exp_info.json', 'r') as json_file:
-            data = json.load(json_file)
-                
+            data = json.load(json_file)       
         return data
     else: 
         return no_update
@@ -910,8 +966,7 @@ def update_experiments(info):
 #             a['experiments'] = experiment_update
 #             return [{'label': i, 'value': i} for i in experiment_update], experiment_update[0], a
 #     return no_update, no_update, no_update
-#########################################################
-
+###########################################
 # Get year list automatically
 @app.callback([Output('year', 'options'),
               Output('year', 'value'),],
@@ -941,7 +996,7 @@ def update_years(exp, info):
 #         return [{'label': i, 'value': i} for i in years_update], years_update[-1], data
     # else: 
     #     return no_update, no_update, no_update
-#########################################################
+############################################
 @app.callback([Output('channels_dropdown', 'options'),
                Output('channels_dropdown', 'value'),
               Output('channels-storage','data')],
@@ -994,7 +1049,6 @@ def update_channels(exp, year, start_date, end_date, data):
     else:
         return no_update, no_update, no_update
 
-
 # Get effective date range 
 @app.callback([Output('date_range', 'min_date_allowed'),
                 Output('date_range', 'max_date_allowed'),
@@ -1004,7 +1058,6 @@ def update_channels(exp, year, start_date, end_date, data):
                [Input('experiment', 'value'),
                Input('year', 'value')])
 def update_date_range(exp, year):
-
     if exp is not None and year is not None: 
         path = path_lab + '\\' + exp + r'\data' + '\\' + year
         dates = []
@@ -1034,7 +1087,6 @@ def update_date_range(exp, year):
                 [Input('date_range', 'start_date'),
                  Input('date_range', 'end_date')])
 def storage_mode(start_date, end_date):
-
     try:
         end_date = datetime.strptime(end_date,r'%Y-%m-%d')
         start_date = datetime.strptime(start_date, r'%Y-%m-%d')
@@ -1049,7 +1101,23 @@ def storage_mode(start_date, end_date):
     else: 
         return 'regular' 
 
-# Callback the update speed
+# Display the store button
+@app.callback([Output('store-data-config', 'style'),
+     Output('data-set', 'children')],
+    [Input('data-set', 'n_clicks')],
+    [State('store-data-config', 'style')])
+def stop_production(n, current):
+    if n>0:
+        if current['display'] =='none':
+            return {'display': 'block'}, 'Close Data Display'
+        elif current['display'] =='block':
+            return {'display': 'none'}, 'Real-time data'
+        else:
+            return no_update, no_update
+    else:
+        return no_update, no_update
+
+
 @app.callback(Output('interval-log-update', 'interval'),
               [Input('dropdown-interval-control', 'value')])
 def update_interval_log_update(interval_rate):
@@ -1066,7 +1134,40 @@ def update_interval_log_update(interval_rate):
     # Refreshes every 24 hours
     elif interval_rate == 'no':
         return 24 * 60 * 60 * 1000
-  
+
+# Store the live data configuration (threshold, unit) 
+@app.callback(Output('live-data-configuration', 'data'),
+              [Input('data-set', 'n_clicks')],
+              [State('live_data', 'data'),
+               State('experiment', 'value'),
+               State('year', 'value')])
+def data_configuration(n, data, exp, year):
+    if exp:
+        if year:
+            if data: 
+                path = path_lab + '\\' + exp + r'\data' + '\\' + year
+                return get_data_configuratin(path, data)
+            else: 
+                return no_update
+        else:
+            return no_update
+    else:
+        return no_update
+
+# Update the real-time data
+@app.callback(Output('div-data-display', 'children'),
+              [Input('data-set', 'n_clicks'),
+               Input('live_data', 'data'),],
+              [State('live-data-configuration', 'data')])
+def data_display(n, data, dic_config):
+    if dic_config:
+        if data: 
+            return live_data_manip(dic_config, data)
+        else: 
+            return no_update
+    else:
+        return no_update
+
 
 # Dash can't have the same Input and Output
 # Save the data as json file in cache
@@ -1078,9 +1179,7 @@ def update_interval_log_update(interval_rate):
                   Input('channels-storage', 'data'),],
                  [State('before-log-storage', 'children'),
                   State('num-before-storage','data'),])
-
 def get_before_log(start_date, end_date, exp, data_channel, before, num_before):
-
     if exp is not None:
         # get the path from the selection of experiment
         path = path_lab +'\\' + exp +'\\data'
@@ -1279,7 +1378,6 @@ def get_today_log(speed_value, n_intervals, exp, channels, start_date, end_date,
         return no_update, no_update
 
 
-# Display the data size
 # The figure extend today's data instead of a enormous dataset
 @app.callback(Output('div-num-display', 'children'),
               [Input('num-before-storage', 'data'),
@@ -1300,9 +1398,8 @@ def update_num_display_and_time(num_before, num_today, n_intervals):
     return html.H2('{0}'.format(total_num), style={ 'margin-top': '3px'})
 
 n_clicks_autoscale = 0
-
 @app.callback([Output('temperature-graph', 'figure'),
-               Output('div-data-display', 'children')],
+               Output('live_data', 'data')],
             [Input('before-log-storage', 'children'),
             Input('date_range', 'end_date'),
             Input('date_range', 'start_date'),
@@ -1370,7 +1467,7 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
         
         if today_data is not None:
             trace = []
-            dis = []
+            dis = {}
 
             # read data from json cache
             if before_data is not None:
@@ -1414,7 +1511,7 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
                         mintime_list.append(temp[channel_time].iloc[0])
 
                         trace.append(go.Scatter(x=temp[channel_time], y=temp[channel],mode='lines', opacity=0.7,name=channel, textposition='bottom center'))
-                        dis.append(html.H6('{0} : {1}'.format(channel, temp[channel].iloc[-1]), style={ 'margin-top': '3px'}))
+                        dis[channel] = temp[channel].iloc[-1]
                  
                 # the time of last data
                 # 'pd.to_datetime' converts the time in UTC, so here we use 'datetime.strptime' to keep same format 
@@ -1562,7 +1659,7 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
         
         if before_data is not None:
             trace = []
-            dis = []
+            dis = {}
             
             date_log_list = list(before_data.keys())
             if 'exp_before' in date_log_list:
@@ -1596,8 +1693,7 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
                             go.Scatter(x=temp[channel_time], y=temp[channel], mode='lines', opacity=0.7, name=channel,
                                     textposition='bottom center'))
 
-                        dis.append(
-                            html.H6('{0} : {1}'.format(channel, temp[channel].iloc[-1]), style={'margin-top': '3px'}))
+                        dis[channel] = temp[channel].iloc[-1]
 
                 
                 # overlap display
@@ -1628,8 +1724,6 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
         else:
             return no_update, no_update
         
-        
-
 # Main
 if __name__ == '__main__':
     if len(sys.argv)>=2:
@@ -1641,188 +1735,3 @@ if __name__ == '__main__':
 
 # In Jupyter, debug = False 
 
-#%%
-
- 
-# df = pd.DataFrame()
-# if before_data is not None:
-#     for key, value in before_data.items():
-#         before_df = pd.read_json(value, orient='split')
-#         df = pd.concat([df, before_df], axis=0, sort=True)
-
-#     # create empty trace     
-#     trace = []
-#     # to keep same format for single channel or multiple channels
-#     if not isinstance(selected_dropdown_value, (list,)):
-#         selected_dropdown_value = [selected_dropdown_value]
-    
-#     for channel in selected_dropdown_value:
-#         key_time = 'Time_'+ channel
-#         key = channel
-#         if key in df.keys() and key_time in df.keys():
-#             temp_df = pd.concat([df[key_time], df[key]], axis=1)
-#             temp_df[key_time] = pd.to_datetime(temp_df[key_time], format=r'%Y%m%d %H:%M:%S')
-            
-#             # eliminate the NaN elements
-#             temp_df.dropna()
-#             trace.append(go.Scatter(x=temp_df[key_time], y=temp_df[key],mode='lines',
-#             opacity=0.7,name=channel, textposition='bottom center'))
-#         else: 
-#             print('There is no trace required')
-
-#     data = trace
-#     # overlap display
-#     if display_mode_value == 'overlap':
-#         figure = {'data': data, 'layout': layout_set}
-    
-#     # separate dislay 
-#     elif display_mode_value == 'separate':
-#         num =  len(selected_dropdown_value)
-#         figure = tools.make_subplots(rows=num, cols=1)
-        
-#         for index, (tra, chan) in enumerate(zip(trace, selected_dropdown_value)):     
-#             figure.append_trace(tra, index+1, 1)
-#             figure['layout']['xaxis{}'.format(index+1)].update(title='The channel of {0}'.format(chan)) 
-        
-#         figure['layout'].update(height=500*num)  
-
-#     return figure, dis       
-# else:
-#     return no_update, no_update
-
-       
-
-# # live mode
-# if today_data is not None:
-#     end_date = datetime.strptime(end_date, r'%Y-%m-%d')
-#     if end_date.date() == datetime.today().date(): 
-#         if selected_dropdown_value is not None:
-            
-#             trace = []
-#             dis = []
-#             data = pd.DataFrame()
-#             for key, value in today_data.items():
-#                 today_data = pd.read_json(value, orient='split')
-#                 data = pd.concat([data, today_data], axis=0, sort=True)
-
-#             if not isinstance(selected_dropdown_value, (list,)):
-#                 selected_dropdown_value = [selected_dropdown_value]
-            
-#             for channel in selected_dropdown_value:
-#                 channel_time = 'Time_'+channel
-
-#                 data[channel_time] = pd.to_datetime(data[channel_time], format=r'%Y%m%d %H:%M:%S')
-
-#                 trace.append(go.Scatter(x=data[channel_time], y=data[channel],mode='lines',
-#                 opacity=0.7,name=channel, textposition='bottom center'))
-
-#                 dis.append(html.H6('{0} : {1}'.format(channel, data[channel].iloc[-1]), style={ 'margin-top': '3px'}))
-    
-#             if len(trace) is not 0:
-                
-#                 # overlap display
-#                 if display_mode_value == 'overlap':
-#                     return trace, dis
-#                 # separate dislay 
-#                 elif display_mode_value == 'separate': 
-#                     return trace, dis
-#             else:
-#                 return no_update, no_update
-#         else: 
-#             return no_update, no_update
-#     else: 
-#         return no_update, no_update
-# else: 
-#     return no_update, no_update
-
-
-
-
-# @app.callback([Output('temperature-graph', 'extendData'),
-#                Output('div-data-display', 'children'),
-#                Output('num-today-storage', 'data'),],
-#             [Input('experiment', 'value'),
-#             Input('channels-storage', 'data'),
-#             Input('date_range', 'start_date'),
-#             Input('date_range', 'end_date'),
-            
-#             Input('channels_dropdown', 'value'),
-#             Input('display_mode','value'),
-#             Input('autoscale','n_clicks_timestamp'),
-#             Input('interval-log-update', 'n_intervals')],
-#             [State('temperature-graph', 'figure'),])
-# def update_graph_extend(exp, channels, start_date, end_date, selected_dropdown_value, display_mode_value, click,n_intervals, figure):
-#     if exp is not None:
-#         # Get the path from the selection of experiment
-#         path = path_lab +'\\' + exp +'\\data'    
-
-#         # Get the selected date range
-#         try:
-#             end_date = datetime.strptime(end_date, r'%Y-%m-%d')
-#             start_date = datetime.strptime(start_date, r'%Y-%m-%d')
-#         except TypeError as error:      
-#             print(error)
-#             print("start_date and end_date have wrong filetype.")
-
-#         # Select live mode
-#         if end_date.date() == datetime.today().date(): 
-             
-#             # Get the channel set from the channel storage
-#             if channels is not None:
-                
-#                 channel_set = channels['channels']
-
-#                 # Get today's data          
-#                 try:
-#                     df_today = get_1day_data_str(datetime.today(), channel_set, path)
-#                 except FileNotFoundError as error:      
-#                     print(error)
-#                     print("There is no data is placed in the today\'s directory.")
-#                 else: 
-#                     num =len(df_today)
-#                     trace = []
-#                     dis = []
-
-#                     print(selected_dropdown_value)
-                    
-#                     for channel in selected_dropdown_value:
-#                         key_time = 'Time_'+channel
-#                         key = channel
-#                         print('1')
-#                         try:
-#                             df_today[key_time] = pd.to_datetime(df_today[key_time], format=r'%Y%m%d %H:%M:%S')
-#                             print('succeed')
-#                         except:
-#                             print('erooooooooor')
-#                         print(df_today[key_time])
-#                         print(df_today.iloc[0][key_time])
-
-#                         trace.append(go.Scatter(x=df_today[key_time], y=df_today[key],mode='lines',
-#                         opacity=0.7,name=channel, textposition='bottom center'))
-#                         print('2')
-
-#                         try:
-#                             dis.append(html.H2('{0} : {1}'.format(channel, df_today[key].iloc[-1]), style={ 'margin-top': '3px'}))
-                    
-#                         except:
-#                             print('live display fails')
-                
-#                 print(num)
-#                 if len(trace) is not 0:
-#                     # overlap display
-#                     if display_mode_value == 'overlap':
-
-#                         return trace, dis, {'num_today': num}
-#                     # separate dislay 
-#                     elif display_mode_value == 'separate': 
-
-#                         return trace, dis, {'num_today': num}
-#                 else:
-
-#                     return no_update, no_update, no_update    
-#             else: 
-#                 return no_update, no_update, no_update
-#         else:
-#             return no_update, no_update, no_update
-#     else:
-#         return no_update, no_update, no_update
