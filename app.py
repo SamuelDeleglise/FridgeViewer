@@ -60,7 +60,6 @@ initial_month = date.today()
 layout_set1 = {'colorway': color_list,
                        'title':"The sensor channel monitor",
                        'height':700,
-                       'width':'100%',
                         'xaxis':{"title":"Date",
                                 'rangeselector': {'buttons': list([
                                 {'count': 10, 'label': '10m', 'step': 'minute', 'stepmode': 'backward'},
@@ -78,7 +77,6 @@ layout_set1 = {'colorway': color_list,
 layout_set2 = {'colorway': color_list,
                     'title':"The sensor channel monitor",
                     'height':700,
-                    'width':'100%',
                     'xaxis':{"title":"Date",
                             'rangeselector': {'buttons': list([
                             {'count': 10, 'label': '10m', 'step': 'minute', 'stepmode': 'backward'},
@@ -418,49 +416,47 @@ def modal():
         
 # the row element of data display
 def build_value_setter_line(icolor, channel, num, unit, vmin, vmax, precisioninput=True):
-    if precisioninput ==True:
-        element_num = daq.PrecisionInput(disabled=True,precision=4, value=num, id='value_{}'.format(channel), className='four columns')
+    if precisioninput ==True: 
+        element_num = html.H6("{0:.5f}".format(num),id='value_{}'.format(channel),)
     else:
-        element_num = html.Label(num,id='value_{}'.format(channel), className='three columns'),
+        element_num = html.H6(num,id='value_{}'.format(channel),)
     
     return html.Div(
-        id=channel,
+        id='framework_{}'.format(channel),
         children=[
-            daq.Indicator(id='indicator_{}'.format(channel), value=True, color=icolor, className='one columns', style={'padding': 8}  ),   
-            html.P(channel, className='four columns',style={'font-weight': 'bold'}),
             element_num,
-            html.Label(unit, id='unit_{}'.format(channel), className='three columns'),
+            html.P(unit, id='unit_{}'.format(channel)),
+
+            daq.Indicator(id='indicator_{}'.format(channel), value=True, color=icolor,style={'width':'15%','float':'left' } ),   
+            html.P(channel,style={'font-weight': 'bold','width':'80%','float':'left'}),
         ],
-        className='row',
+        className='mini_container',
+        style={'width':'20%', 'float':'left'}
     )
 
 # a row of elements
-def live_data_manip(dic, data):
-    elements =[html.Div(id='data_title',
-                children=[html.Label('State', className='one columns'),
-                        html.Label('Channel', className='four columns'),
-                        html.Label('Value', className='four columns'),
-                        html.Label('Unit', className='three columns'),
-                ],className='row',)]
-
-    for channel in dic.keys():
-        print(dic[channel]['min'])
-        print(dic[channel]['max'])
-        print(dic[channel]['min']<= data[channel] and data[channel] <=dic[channel]['max'])
+def live_data_div(dic, data):
+    number = len(data.keys())
+    num_row = int(number/4) + 1
+    rest = number%4
+    row = [[None for i in range(4)] for j in range(num_row)]
+    content = []
+    keys_list = [i for i in dic.keys() if i in data.keys()]
+     
+    for num, channel in enumerate(keys_list):
         if dic[channel]['min']<= data[channel] and data[channel] <=dic[channel]['max']:
             color = "#00cc96"
         else:
             color = "#FE5C5C"
-        elements.append(build_value_setter_line(color, channel, data[channel], dic[channel]['unit'],dic[channel]['min'],dic[channel]['max']))
-    
-    a = html.Div(id = 'data-content', 
-                 children = elements,
-                 style={ 'height':'100%', 
-                        'padding': 10,  
-                        'borderRadius': 5, 
-                        'border': 'thin lightgrey solid'}  
-        )
-    return a
+        
+        row[int(num/4)][num%4]=(build_value_setter_line(color, channel, data[channel], dic[channel]['unit'],dic[channel]['min'],dic[channel]['max'], precisioninput=True))
+        
+    for i in range(num_row):
+        content.append(html.Div(children = row[i],className = 'row', ))
+
+    div = html.Div(id = 'data-content', 
+                 children = content,)
+    return div
 
 def get_data_configuratin(path, dic) :
     if os.path.isfile(path + r'\channels_threshold.json'): 
@@ -469,7 +465,15 @@ def get_data_configuratin(path, dic) :
         update_data_configuration(path, dic)
     # read channel config file
     with open(path + r'\channels_threshold.json',  encoding='utf-8') as jsonfile:
-        dic_config = json.load(jsonfile)   
+        dic_config = json.load(jsonfile)
+        
+
+    for i in [i for i in dic.keys() if i not in dic_config.keys()]:
+        update_jsonfile(path + r'\channels_threshold.json',i, dic[i], valuetype=dict)
+
+    with open(path + r'\channels_threshold.json',  encoding='utf-8') as jsonfile:
+        dic_config = json.load(jsonfile)
+
     return dic_config
     
 def update_data_configuration(path, dic):
@@ -479,8 +483,8 @@ def update_data_configuration(path, dic):
 def display_subplot():
     return  html.Div([
                 dcc.Graph(id='subplot-graph')
-                ],style={}
-                )
+            ],
+            )
 
 
 ####################################################################################
@@ -554,94 +558,104 @@ page1 = html.Div([
         ], className='row' , style={'margin-top': 5, 'margin-bottom': 5,}
     ),
     
-
     html.Div([
         html.Div([
             html.Div([
-                html.P('Experiment:',style={'font-weight': 'bold'}),
-        ], className= 'droptitle' ,style={"width": "90px" , "padding": 5,"float": "left", }
+                html.Div([
+                    html.P('Experiment:',style={'font-weight': 'bold'}),
+            ], className= 'droptitle' ,style={"width": "90px" , "padding": 5,"float": "left", }
+                ),
+                html.Div([
+                    dcc.Dropdown( id ='experiment',
+                    #options=[{'label': i, 'value': i} for i in experiments_auto],
+                    multi=False,
+                    #value= experiments_auto[0],
+                    ),
+                ], className= 'dropcontent', style={"width": "100%"}
+                ), 
+            ], id='experiment-framework',className='four columns',style={"display": "flex","flex-direction": "row",}   
             ),
-            html.Div([
-                dcc.Dropdown( id ='experiment',
-                #options=[{'label': i, 'value': i} for i in experiments_auto],
-                multi=False,
-                #value= experiments_auto[0],
-                ),
-            ], className= 'dropcontent', style={"width": "100%"}
-            ), 
-        ], id='experiment-framework',className='four columns',style={"display": "flex","flex-direction": "row",}   
-        ),
-    
-        html.Div([
-            html.Div([
-                html.P('Year:',style={'font-weight': 'bold'}),
-            ], className= 'droptitle' ,style={ "width": "80px","padding": 5,"float": "left", }
-            ), 
-            html.Div([
-                dcc.Dropdown(id='year',
-                #options=[{'label': i, 'value': i} for i in years_auto],
-                multi=False,
-                #value= years_auto[-1],
-                ),
-            ], className= 'dropcontent', style={"width": "100%"}
-            ), 
-        ], id='years-framework', className='four columns',style={"display": "flex","flex-direction": "row",}   
-        ),
-
-        html.Div([
-            html.Div([
-                html.P("Scale:", style={'font-weight': 'bold'}),
-            ], className= 'droptitle' ,style={ "width": "80px","padding": 5,"float": "left", }
-            ), 
-            html.Div([
-                dcc.DatePickerRange(id='date_range',
-                            end_date = initial_end_date,
-                            start_date = initial_start_date,
-                            min_date_allowed=min_date,
-                            max_date_allowed=max_date,
-                            initial_visible_month=initial_month,
-                ),
-            ], className= 'dropcontent', style={"width": "100%"}
-            ), 
-            ],id='range_framework', className='four columns',style={"display": "flex","flex-direction": "row",}   
-        ),
-                
-    ],className='row' , style={'margin-top': 5, 'margin-bottom': 5,}
-    ),
-
-    html.Div([
         
-        html.Div([
-            html.P('Channel:', style={'font-weight': 'bold'}),
-            # head style
-        ], className= 'droptitle' ,style={"width": "80px" , "padding": 5,"float": "left", }
+            html.Div([
+                html.Div([
+                    html.P('Year:',style={'font-weight': 'bold'}),
+                ], className= 'droptitle' ,style={ "width": "80px","padding": 5,"float": "left", }
+                ), 
+                html.Div([
+                    dcc.Dropdown(id='year',
+                    #options=[{'label': i, 'value': i} for i in years_auto],
+                    multi=False,
+                    #value= years_auto[-1],
+                    ),
+                ], className= 'dropcontent', style={"width": "100%"}
+                ), 
+            ], id='years-framework', className='four columns',style={"display": "flex","flex-direction": "row",}   
+            ),
+
+            html.Div([
+                html.Div([
+                    html.P("Scale:", style={'font-weight': 'bold'}),
+                ], className= 'droptitle' ,style={ "width": "80px","padding": 5,"float": "left", }
+                ), 
+                html.Div([
+                    dcc.DatePickerRange(id='date_range',
+                                end_date = initial_end_date,
+                                start_date = initial_start_date,
+                                min_date_allowed=min_date,
+                                max_date_allowed=max_date,
+                                initial_visible_month=initial_month,
+                    ),
+                ], className= 'dropcontent', style={"width": "100%"}
+                ), 
+                ],id='range_framework', className='four columns',style={"display": "flex","flex-direction": "row",}   
+            ),
+                
+        ],className='row' , style={"display": "flex","flex-direction": "row",'margin-top': 5, 'margin-bottom': 5,}
         ),
 
-        html.Div([    
-            # Channel selection dropdown
-            dcc.Dropdown(id='channels_dropdown',
-                    multi=True,
-            )
-            # channel selection style
-        ], className= 'dropcontent', style={"width": "100%"}
+        html.Div([     
+            html.Div([
+                html.P('Channel:', style={'font-weight': 'bold'}),
+                # head style
+            ], className= 'droptitle' ,style={"width": "80px" , "padding": 5,"float": "left", }
+            ),
+
+            html.Div([    
+                # Channel selection dropdown
+                dcc.Dropdown(id='channels_dropdown',
+                        multi=True,
+                )
+                # channel selection style
+            ], className= 'dropcontent', style={"width": "100%"}
+            ),
+        ],className='row' , style={"display": "flex","flex-direction": "row",'margin-top': 5, 'margin-bottom': 5,}
         ),
-    ],className='row' , style={"display": "flex","flex-direction": "row",'margin-top': 5, 'margin-bottom': 5,}
-    ),
+    ], className= 'pretty_container row'),
+    
+
 
     html.Div([
         html.Div([
+            
             html.Div(
                     id="div-data-display", 
                     style={'width': '100%', 'margin-bottom': '15px','display':'none'},
-                    className='row',
             ),
 
             html.Div([
                 dcc.Graph(id='temperature-graph')
-            ], className='row',
+            ], className="pretty_container",
                style={'width': '100%', 'margin-bottom': '15px' },
             ),
 
+            html.Div([
+                 dcc.Graph(id='subplot-graph')
+            ], className="pretty_container",
+               id='subplot-graph-framework',
+              style={'width': '100%','margin-bottom': '15px', 'display': 'none'}
+            ),
+
+            
             html.Div([
                     html.Div([
                         dcc.Dropdown(
@@ -650,45 +664,21 @@ page1 = html.Div([
                             value='',
                             multi = False,
                         )
-                    ],style={'width': '20%','float': 'left'}
+                    ],style={'width': '20%','float': 'left', 'margin-right': '15px'}
                     ),
                     
                     html.Div([
                         html.Button('Show Subplot',n_clicks = 0, id='subplot-graph-button',)
                     ],style={'float': 'left'}),
-            ], className='row',
-              style={'width': '100%', 'margin-bottom': '15px' }
+            ], className="row", style={'width': '100%',  'margin': '15px'}
             ),
 
-            html.Div([
-                 dcc.Graph(id='subplot-graph')
-            ], className='row',
-               id='subplot-graph-framework',
-              style={'width': '100%', 'display': 'none'}
-            ),
-        ],id='graph_framework', className ='eight columns',style={'display': 'inline-block'}),
+        
+        ],id='graph_framework', className ='eight columns',style={'display': 'block'}),
 
         html.Div([
-            
             html.Div([
-                html.Div([
-                    html.Span( 'Update config files',
-                                id="reset_config",
-                                n_clicks=0,
-                                className="button",
-                                style= {'width': '100%'}
-                        ),
-                ],style={'width': '100%', 'margin-bottom': '15px' }
-                ),
-                html.Div([
-                    dcc.Dropdown(
-                        id="selection_config",
-                        options=[],
-                        value=''
-                    )
-                ],style={'width': '100%', 'margin-bottom': '15px' }
-                ),
-    
+
                 html.Div([   
                     html.Span('Add Configuration',
                             id="new_configuration",
@@ -698,31 +688,47 @@ page1 = html.Div([
                     )
                 ],style={'width': '100%', 'margin-bottom': '15px' }
                 ),
-            ],style={       'height':'100%', 
-                            'padding': 10,  
-                            'borderRadius': 5, 
-                            'border': 'thin lightgrey solid',
-                            'margin-bottom': '15px'}),
-            
-                 
+                
+                html.Div([
+                    dcc.Dropdown(
+                        id="selection_config",
+                        options=[],
+                        value=''
+                    )
+                ],style={'width': '100%', 'margin-bottom': '15px' }
+                ),
+
+                html.Div([
+                    html.Span( 'Update config files',
+                                id="reset_config",
+                                n_clicks=0,
+                                className="button",
+                                style= {'width': '100%'}
+                    ),
+                ],style={'width': '100%', 'margin-bottom': '15px' }
+                ),
+            ], className="pretty_container",
+            ),
+                   
             html.Div([
+                
                 html.P("Real-time Data display:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
+                
                 html.Div([
                      html.Span('Real-time data', 
-                                    id='data-set', 
-                                    n_clicks=0,
-                                    className= 'button button-primary', 
-                                    style= {'width': '100%'})
+                                id='data-set', 
+                                n_clicks=0,
+                                className= 'button button-primary', 
+                                style= {'width': '100%'})
                 ],style={'width': '100%', 'margin-bottom': '15px' }
                 ),
 
                 html.Div([
                      html.Span('Store Data Config', 
-                                    id='store-data-config', 
-                                    n_clicks=0,
-                                    className= 'button', 
-                                    style= {'width': '100%', 'display': 'none'})
-                
+                                id='store-data-config', 
+                                n_clicks=0,
+                                className= 'button', 
+                                style= {'width': '100%', 'display': 'none'})
                 ],style={'width': '100%', 'margin-bottom': '15px' }
                 ),
 
@@ -745,11 +751,8 @@ page1 = html.Div([
                     ]),
                 ], style={'width': '100%', 'margin-bottom': '15px' }
                 ),
-            ],style={       'height':'100%', 
-                            'padding': 10,  
-                            'borderRadius': 5, 
-                            'border': 'thin lightgrey solid',
-                            'margin-bottom': '15px'}),
+            ], className="pretty_container",
+            ),
 
             html.Div([
 
@@ -784,18 +787,15 @@ page1 = html.Div([
                 ],style={'width': '100%', 'margin-bottom': '15px' }
                 ),
                 
-            ],style={       'height':'100%', 
-                            'padding': 10,  
-                            'borderRadius': 5, 
-                            'border': 'thin lightgrey solid'})
+            ], className="pretty_container",
+            ),
         ],id='select_framework', className ='four columns', style={
-                            'height':'100%', 
                             'display': 'inline-block',
                             'float': 'right',}
         )
     ],className='row', style={'margin-top': 5, 'margin-bottom': 5,}
     ),     
-],id ='page', className='ten columns offset-by-one'
+],id ='page', className='ten columns offset-by-one',style={"display": "flex", "flex-direction": "column"},
 )
 
 # Create app layout
@@ -1071,7 +1071,9 @@ def update_channels(exp, year, start_date, end_date,reset_click, value):
     channels_selected = no_update
     data_returned = no_update
     data_user = None
-    print(exp, year, start_date, end_date,reset_click, value)
+    data_channel = {}
+    
+    
     if value and reset_click>0: 
         with open(path_lab + r'\user.json', 'r') as json_file:
             data_user = json.load(json_file)
@@ -1082,7 +1084,7 @@ def update_channels(exp, year, start_date, end_date,reset_click, value):
     if exp and year:    
         path = path_lab + '\\' + exp + r'\data' + '\\' + year
         channels_update = set()
-        data_channel = {}
+        data_channel = {'experiment': exp}
         
         # the date interval
         try:
@@ -1116,16 +1118,16 @@ def update_channels(exp, year, start_date, end_date,reset_click, value):
                     channels_update.update(set(data[single_date_str]))
 
         channels_update = list(channels_update)
-        data_channel['channels'] = channels_update
+        data_channel.update({'channels': channels_update})
         
         options = [{'label': i, 'value': i} for i in channels_update]
         channels_selected = channels_update
-        data_returned = data_channel
+        
        
         if value and reset_click>0: 
             channels_selected = data_user[value]['channels']
     
-    return options, channels_selected, data_returned
+    return options, channels_selected, data_channel
 
 
 
@@ -1277,15 +1279,20 @@ def data_configuration(title, exp, year, data):
     if exp and year and data:
         path = path_lab + '\\' + exp + '\\data' + '\\' + year
         
-        # the inital setting
-        dic = {}
-        
-        for key in data.keys():
-            dic[key]={'unit':'', 'min':data[key], 'max':data[key]}
+        if 'experiment' in data.keys() and  data['experiment'] == exp:
+            data.pop('experiment', None)
+            # the inital setting
+            dic = {}
+            print('222222222222222222222222222222222222')
+            print(data)
+            for key in data.keys():
+                dic[key]={'unit':'', 'min':data[key], 'max':data[key]}
 
-        dic_config = get_data_configuratin(path, dic)
-        print(dic_config)
-        return dic_config 
+            dic_config = get_data_configuratin(path, dic)
+
+            return dic_config 
+        else:
+            return no_update
     else:
         return no_update
 
@@ -1295,9 +1302,12 @@ def data_configuration(title, exp, year, data):
               [Input('live_data', 'data'),],
               [State('live-data-configuration', 'data')])
 def data_display(data, dic_config):
+    
     if dic_config:
-        if data: 
-            return live_data_manip(dic_config, data)
+        if data and 'experiment' in data.keys():
+            data.pop('experiment', None)
+            
+            return live_data_div(dic_config, data)
         else: 
             return no_update
     else:
@@ -1316,96 +1326,107 @@ def data_display(data, dic_config):
                   State('before-log-storage', 'children'),
                   State('num-before-storage','data'),])
 def get_before_log(start_date, end_date, data_channel, exp, year,  before, num_before):
+
     if exp and year and end_date and start_date and data_channel:
-        # get the path from the selection of experiment
-        path = path_lab +'\\' + exp +'\\data'
-        
-        # selected date range
-        try:
-            end_date = datetime.strptime(end_date,r'%Y-%m-%d')
-            start_date = datetime.strptime(start_date, r'%Y-%m-%d')
-            date_list = datelist(start_date, end_date)
-        except TypeError as error:      
-            print(error)
-            print("start_date and end_date have wrong filetype.") 
-        
-        if end_date.date() != datetime.today().date():
-            is_clear_data = False
-            # if before is None(empty)
-            if not before:
-                date_update = date_list
+        if data_channel['experiment'] ==exp:
             
-            # the previous 'before' stores the same experiment as the selected
-            elif before and 'exp_before' in before and exp == before['exp_before']:
-                date_list_old = list(before.keys())
-                
-                # remove the key indicating the experiment name
-                if 'exp_before' in date_list_old:
-                    date_list_old.remove('exp_before')
-                if 'exp_today' in date_list_old:
-                    date_list_old.remove('exp_today')
-                     
-                # convert 'date_list_old' in datetime type
-                if  date_list_old:
-                    date_list_temp = []
-                    for date in date_list_old:
-                        date_list_temp.append(datetime.strptime(date, r'%Y-%m-%d'))
-                    date_list_old = date_list_temp
-
-                # the different dates between two lists
-                date_update = [i.date() for i in date_list if i not in date_list_old]
+            # get the path from the selection of experiment
+            path = path_lab +'\\' + exp +'\\data'
             
-            elif before and 'exp_before' in before and exp != before['exp_before']:
-                is_clear_data = True 
-            else:
+            # selected date range
+            try:
+                end_date = datetime.strptime(end_date,r'%Y-%m-%d')
+                start_date = datetime.strptime(start_date, r'%Y-%m-%d')
+                date_list = datelist(start_date, end_date)
+            except TypeError as error:      
+                print(error)
+                print("start_date and end_date have wrong filetype.") 
+            
+            if end_date.date() != datetime.today().date():
+        
+                is_clear_data = False
                 date_update = []
-
-            if date_update and not is_clear_data: 
-                # remove today, it will update in another callback
-                if datetime.today().date() in date_update:
-                    date_update.remove(datetime.today().date())      
+                # if before is None(empty)
                 
-                # get the channel set from the channel storage
-                cache_dic = {}
-                num_total = 0
-                channel_set = data_channel['channels'] 
-                
-                for single_date in date_update:
-                    # extract one day's data 
-                    try:
-                        df = get_1day_data_str(single_date, channel_set, path)
-                        single_date_str = single_date.strftime(r'%Y-%m-%d')
-                    except Exception as error: 
-                        print(error)
-                        print("Fail to read the data in disk.")
+                if not before:
+                    date_update = date_list
+                   
+                # the previous 'before' stores the same experiment as the selected
+                elif before and 'exp_before' in before and exp == before['exp_before']:
+                    date_list_old = list(before.keys())
                     
-                    try:
-                        num_df = len(df)
-                        json_data = df.to_json(orient='split')
-                        # create individual store component according to the date
-                        cache_dic[single_date_str] = json_data
-                    except Exception as error: 
-                        print(error)
-                        print("Fail to transfer the data to json type.")
-                    else: 
-                        print('Succeed to transfer the data to json type.')
-                        num_total = num_total + num_df
-            
-                    if num_before:
-                        num_total = num_before['num_before'] + num_total
+                    # remove the key indicating the experiment name
+                    if 'exp_before' in date_list_old:
+                        date_list_old.remove('exp_before')
+                    if 'exp_today' in date_list_old:
+                        date_list_old.remove('exp_today')
+                        
+                    # convert 'date_list_old' in datetime type
+                    if  date_list_old:
+                        date_list_temp = []
+                        for date in date_list_old:
+                            date_list_temp.append(datetime.strptime(date, r'%Y-%m-%d'))
+                        date_list_old = date_list_temp
 
-                before = before or {}
-                before.update(cache_dic)
-                before['exp_before'] = exp
+                    # the different dates between two lists
+                    date_update = [i.date() for i in date_list if i not in date_list_old]
+                    
+                
+                elif before and 'exp_before' in before and exp != before['exp_before']:
+                    is_clear_data = True 
+                    date_update = date_list
+                
+                if  is_clear_data: 
+                    before = {}
+                    num_before['num_before'] = 0
+                else:
+                    before = before or {}
+                
+                if date_update: 
+                    # remove today, it will update in another callback
+                    if datetime.today().date() in date_update:
+                        date_update.remove(datetime.today().date())      
+                    
+                    # get the channel set from the channel storage
+                    cache_dic = {}
+                    num_total = 0
+                    channel_set = data_channel['channels'] 
+                    
+                    for single_date in date_update:
+                        # extract one day's data 
+                        try:
+                            df = get_1day_data_str(single_date, channel_set, path)
+                            single_date_str = single_date.strftime(r'%Y-%m-%d')
+                        except Exception as error: 
+                            print(error)
+                            print("Fail to read the data in disk.")
+                        
+                        try:
+                            num_df = len(df)
+                            json_data = df.to_json(orient='split')
+                            # create individual store component according to the date
+                            cache_dic[single_date_str] = json_data
+                        except Exception as error: 
+                            print(error)
+                            print("Fail to transfer the data to json type.")
+                        else: 
+                            print('Succeed to transfer the data to json type.')
+                            num_total = num_total + num_df
+                
+                        if num_before:
+                            num_total = num_before['num_before'] + num_total
 
-                return before, {'num_before': num_total}
-            
-            elif date_update and is_clear_data:  
-                return None, {'num_before': 0}
-            else:
+                    before.update(cache_dic)
+                    before['exp_before'] = exp
+                    
+                    return before, {'num_before': num_total}
+                
+                else:
+                    return no_update, no_update
+            else: 
                 return no_update, no_update
         else: 
-            return None, {'num_before': 0}
+            return None, None
     else:
         return no_update, no_update
 
@@ -1421,40 +1442,45 @@ def get_before_log(start_date, end_date, data_channel, exp, year,  before, num_b
                   [State('today-log-storage', 'children')])
 def get_today_log(speed_value, n_intervals, exp, channels, start_date, end_date, today):
     if exp and channels and start_date and end_date:
-        # get the path from the selection of experiment
-        path = path_lab +'\\' + exp +'\\data'
-        try:
-            end_date = datetime.strptime(end_date, r'%Y-%m-%d')
-            start_date = datetime.strptime(start_date, r'%Y-%m-%d')
-        except TypeError as error:      
-            print(error)
-            print("start_date and end_date have wrong filetype.")
-
-        # Select live mode
-        if end_date.date() == datetime.today().date(): 
-            today_str = datetime.today().strftime(r'%Y-%m-%d')
-            num = 0
-            cache_dic = {}
-
-            # get the channel set from the channel storage
-            channel_set = channels['channels']   
-
-            today = today or {}
+        print('jjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj')
+        print(channels)
+        if channels['experiment'] == exp:
+            # get the path from the selection of experiment
+            path = path_lab +'\\' + exp +'\\data'
             try:
-                df = get_1day_data_str(datetime.today().date(),channel_set, path)
-            except FileNotFoundError as error:      
+                end_date = datetime.strptime(end_date, r'%Y-%m-%d')
+                start_date = datetime.strptime(start_date, r'%Y-%m-%d')
+            except TypeError as error:      
                 print(error)
-                print("There is no data is placed in the today\'s directory.")
-            else: 
-                num =len(df) 
-                json_data = df.to_json(orient='split')
-                cache_dic[today_str] = json_data
-                cache_dic['exp_today'] = exp
-            
-            today = today or {}
-            today.update(cache_dic)
-            today['exp_today'] = exp
-            return today, {'num_today': num}
+                print("start_date and end_date have wrong filetype.")
+
+            # Select live mode
+            if end_date.date() == datetime.today().date(): 
+                today_str = datetime.today().strftime(r'%Y-%m-%d')
+                num = 0
+                cache_dic = {}
+
+                # get the channel set from the channel storage
+                channel_set = channels['channels']   
+
+                today = today or {}
+                try:
+                    df = get_1day_data_str(datetime.today().date(),channel_set, path)
+                except FileNotFoundError as error:      
+                    print(error)
+                    print("There is no data is placed in the today\'s directory.")
+                else: 
+                    num =len(df) 
+                    json_data = df.to_json(orient='split')
+                    cache_dic[today_str] = json_data
+                    cache_dic['exp_today'] = exp
+                
+                today = today or {}
+                today.update(cache_dic)
+                today['exp_today'] = exp
+                return today, {'num_today': num}
+            else:
+                return no_update, no_update
         else:
             return no_update, no_update
     else:
@@ -1502,7 +1528,10 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
         if today_data is not None:
             trace = []
             last_data = {}
-
+            if today_data and 'exp_today' in today_data.keys():
+                print()
+                last_data.update({'experiment': today_data['exp_today']})
+            
             # read data from json cache
             if before_data is not None:
                 before_data.update(today_data)
@@ -1645,7 +1674,9 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
     elif before_data is not None: 
         trace = []
         last_data = {}
-        
+        if before_data and 'exp_before' in before_data.keys():
+            last_data.update({'experiment': before_data['exp_before'] })
+
         date_log_list = list(before_data.keys())
         if 'exp_before' in date_log_list:
             date_log_list.remove('exp_before')
@@ -1725,17 +1756,17 @@ def update_subplot(n, reset_click, current, channel, value):
             is_mutiple_plots = True
     
     if n==1 and channel:
-        return {'display': 'block'}, 'Close Subplot' 
+        return {'display': 'inline'}, 'Close Subplot' 
     elif n>1 and channel:
         if current['display'] =='none':
-            return {'display': 'block'}, 'Close Subplot'
-        elif current['display'] =='block':
+            return {'display': 'inline'}, 'Close Subplot'
+        elif current['display'] =='inline':
             return {'display': 'none'}, 'Show Subplot'
         else:
             return no_update, no_update
     
     elif is_mutiple_plots and channel:
-        return {'display': 'block'}, 'Close Subplot'
+        return {'display': 'inline'}, 'Close Subplot'
     else:
         return no_update, no_update
 
