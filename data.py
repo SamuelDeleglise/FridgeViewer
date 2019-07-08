@@ -192,7 +192,7 @@ def get_data_str(start_date, end_date, channels, path_data):
 
             # delete the 'Date', 'Time' has the information 
             df = df.rename(columns={'Value': chan})
-            df = df.rename(columns={'Time': 'Time_'+chan})
+            df = df.rename(columns={'Time': chan+'_time'})
             if df_channel.empty:
                 df_channel = df
             else: df_channel = pd.concat([df_channel, df], axis=1)
@@ -234,7 +234,7 @@ def get_1day_data_str(single_date, channels, path_data):
         # rename the key 
         try:
             df = df.rename(columns={'Value': chan})
-            df = df.rename(columns={'Time': 'Time_'+chan})
+            df = df.rename(columns={'Time': chan+'_time'})
         except KeyError as error:
             print(error)
             print('The aggregation of different channel data fails.')

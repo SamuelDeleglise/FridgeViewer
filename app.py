@@ -28,7 +28,7 @@ app = dash.Dash(__name__)
 # external CSS
 # https://cdnjs.cloudflare.com/ajax/libs/normalize/7.0.0/normalize.min.css
 # https://codepen.io/chriddyp/pen/bWLwgP.css
-app.css.append_css({'external_url': 'https://rayonde.github.io/external_css/stylesheet.css'})  
+# app.css.append_css({'external_url': 'https://rayonde.github.io/external_css/stylesheet.css'})  
 
 app.css.config.serve_locally = True
 app.scripts.config.serve_locally = True
@@ -42,9 +42,11 @@ CORS(server)
 #
 ####################################################################################
 global path_lab
+global path_user
 path_lab = r"C:\Users\YIFAN\Documents\GitHub\LOGS"
 path_lab2 = path_lab
 path_lab3 = path_lab
+path_user = r"C:\Users\YIFAN\Documents\GitHub\LOGS"
 
 color_list = ["#5E0DAC", '#FF4F00', '#375CB1', '#FF7400', '#FFF400', '#FF0056']
 
@@ -54,6 +56,43 @@ initial_start_date = date.today()
 min_date = date.today()
 max_date = date.today()
 initial_month = date.today()
+
+layout_set1 = {'colorway': color_list,
+                       'title':"The sensor channel monitor",
+                       'height':700,
+                       'width':'100%',
+                        'xaxis':{"title":"Date",
+                                'rangeselector': {'buttons': list([
+                                {'count': 10, 'label': '10m', 'step': 'minute', 'stepmode': 'backward'},
+                                {'count': 1, 'label': '1h', 'step': 'hour', 'stepmode': 'backward'},
+                                {'count': 6, 'label': '6h', 'step': 'hour', 'stepmode': 'backward'},
+                                {'count': 1, 'label': '1 day', 'step': 'day', 'stepmode': 'backward'},
+                                {'count': 3, 'label': '3 days', 'step': 'day', 'stepmode': 'backward'},
+                                {'count': 7, 'label': '1 week', 'step': 'day', 'stepmode': 'backward'},
+                                {'step': 'all'}])}, 'type': 'date'},
+                        'margin':{'l':60, 'b': 40, 't': 80, 'r': 10},
+                        'yaxis' : {"title":"Value",
+                                },
+                }
+
+layout_set2 = {'colorway': color_list,
+                    'title':"The sensor channel monitor",
+                    'height':700,
+                    'width':'100%',
+                    'xaxis':{"title":"Date",
+                            'rangeselector': {'buttons': list([
+                            {'count': 10, 'label': '10m', 'step': 'minute', 'stepmode': 'backward'},
+                            {'count': 1, 'label': '1h', 'step': 'hour', 'stepmode': 'backward'},
+                            {'count': 6, 'label': '6h', 'step': 'hour', 'stepmode': 'backward'},
+                            {'count': 1, 'label': '1 day', 'step': 'day', 'stepmode': 'backward'},
+                            {'count': 3, 'label': '3 days', 'step': 'day', 'stepmode': 'backward'},
+                            {'count': 7, 'label': '1 week', 'step': 'day', 'stepmode': 'backward'},
+                            {'step': 'all'}])}, 'type': 'date',
+                    'rangeslider':{'visible':'True'}},
+                    'margin':{'l':60, 'b': 40, 't': 80, 'r': 10},
+                    'yaxis' : {"title":"Value",
+                            },
+            }
 ####################################################################################
 # General Functions
 #
@@ -64,14 +103,17 @@ initial_month = date.today()
 def update_jsonfile(path, key, value, valuetype=str):
     # if not exist, create an empty json file 
     if not os.path.isfile(path):
-         with open(path, 'w') as jsonfile:
+        with open(path, 'w',  encoding='utf-8') as jsonfile:
             jsonfile.write(json.dumps({}))
     
     # Open the JSON file for reading
-    with open(path, 'r+') as jsonfile:
-        data = json.load(jsonfile) 
-        # update data
-        
+    with open(path, 'r+',  encoding='utf-8') as jsonfile:
+        try:
+            data = json.load(jsonfile) 
+            # update data
+        except:
+            print(path)
+
         if key in data.keys():
             if valuetype is str:
                 if value not in data[key]:
@@ -79,7 +121,9 @@ def update_jsonfile(path, key, value, valuetype=str):
             elif valuetype is dict:
                 data[key].update(value)
             elif valuetype is list:
-                data[key].extend(value)
+                for ele in value:
+                    if ele not in data[key]:
+                        data[key].extend(ele)
         else:
             if valuetype is dict:
                 data.update({key: value})
@@ -87,12 +131,11 @@ def update_jsonfile(path, key, value, valuetype=str):
                 data.update({key: [value]})
             elif valuetype is list:
                 data.update({key: value})
-
         jsonfile.seek(0)  # rewind
         jsonfile.write(json.dumps(data, indent=4))
-
         # this deals with the case where the new data is smaller than the previous.
         jsonfile.truncate()
+    return None
 
 def write_channels_config(path):
     try:
@@ -101,6 +144,8 @@ def write_channels_config(path):
         print(error)
         print('Cannot get the year list')
     else:
+
+        i = 0
         for single_date_str in date_list: 
             channels_update = set()
             try:
@@ -116,8 +161,8 @@ def write_channels_config(path):
             except:
                 print('No chan files')
             
-            channels_update = list(channels_update)
-            update_jsonfile(path + r'\channels.json', single_date_str, channels_update, valuetype=list)
+            update_jsonfile(path + r'\channels.json', single_date_str, list(channels_update), valuetype=list)
+            
     return None
 
 def write_info(path_lab):
@@ -168,9 +213,7 @@ def get_menu():
 
 # returns modal (hidden by default)
 def modal():
-    return html.Div(
-        html.Div(  
-            html.Div([
+    return html.Div([
                     # modal header
                     html.Div(
                         [
@@ -370,71 +413,74 @@ def modal():
                         
                     ),
                     ], style={'margin-top': 5})
-                
-                    
-            ],className="modal-content", style={"textAlign": "center"},
+            ],className="modal-container",  id="modal-container", style={"display": "none"},
             )
-        ), id="configuration_modal", style={"display": "none"},
-    )
-
+        
 # the row element of data display
-def build_value_setter_line(state, channel, num, unit, vmin, vmax, precisioninput=True):
+def build_value_setter_line(icolor, channel, num, unit, vmin, vmax, precisioninput=True):
     if precisioninput ==True:
-        element_num = daq.PrecisionInput(disabled=True,precision=4, value=num, id='value_{}'.format(channel), className='three columns')
+        element_num = daq.PrecisionInput(disabled=True,precision=4, value=num, id='value_{}'.format(channel), className='four columns')
     else:
         element_num = html.Label(num,id='value_{}'.format(channel), className='three columns'),
     
     return html.Div(
         id=channel,
         children=[
-            daq.Indicator(id='indicator_{}'.format(channel), value=state, color="#00cc96", className='one columns'),   
-            html.Label(channel, className='three columns'),
+            daq.Indicator(id='indicator_{}'.format(channel), value=True, color=icolor, className='one columns', style={'padding': 8}  ),   
+            html.P(channel, className='four columns',style={'font-weight': 'bold'}),
             element_num,
-            html.Label(unit, id='unit_{}'.format(channel), className='one columns'),
-            daq.PrecisionInput(id='threshold_min_{}'.format(channel), precision=4, value=vmin, className='two columns'),
-            daq.PrecisionInput(id='threshold_max_{}'.format(channel),precision=4, value=vmax, className='two columns')
+            html.Label(unit, id='unit_{}'.format(channel), className='three columns'),
         ],
         className='row',
     )
+
 # a row of elements
 def live_data_manip(dic, data):
     elements =[html.Div(id='data_title',
                 children=[html.Label('State', className='one columns'),
-                        html.Label('Channel', className='three columns'),
-                        html.Label('Value', className='three columns'),
-                        html.Label('Unit', className='one columns'),
-                        html.Label('Min Threshold', className='two columns'),
-                        html.Label('Max Threshold', className='two columns'),
+                        html.Label('Channel', className='four columns'),
+                        html.Label('Value', className='four columns'),
+                        html.Label('Unit', className='three columns'),
                 ],className='row',)]
 
     for channel in dic.keys():
-        if dic[channel]['min']<=data[channel] and data[channel]<=dic[channel]['max']:
-            state = True
+        print(dic[channel]['min'])
+        print(dic[channel]['max'])
+        print(dic[channel]['min']<= data[channel] and data[channel] <=dic[channel]['max'])
+        if dic[channel]['min']<= data[channel] and data[channel] <=dic[channel]['max']:
+            color = "#00cc96"
         else:
-            state = False
-        elements.append(build_value_setter_line(state, channel, data[channel], dic[channel]['unit'],dic[channel]['min'],dic[channel]['max']))
+            color = "#FE5C5C"
+        elements.append(build_value_setter_line(color, channel, data[channel], dic[channel]['unit'],dic[channel]['min'],dic[channel]['max']))
     
     a = html.Div(id = 'data-content', 
                  children = elements,
                  style={ 'height':'100%', 
-                        'padding': 15,  
+                        'padding': 10,  
                         'borderRadius': 5, 
                         'border': 'thin lightgrey solid'}  
         )
     return a
 
 def get_data_configuratin(path, dic) :
-    if os.path.isfile(path + r'\channels_config.json'): 
-        # read channel config file
-        with open(path + r'\channels_threshold.json') as jsonfile:
-            dic_config = json.load(jsonfile)   
-        return dic_config
+    if os.path.isfile(path + r'\channels_threshold.json'): 
+        pass
     else:
-        return 
+        update_data_configuration(path, dic)
+    # read channel config file
+    with open(path + r'\channels_threshold.json',  encoding='utf-8') as jsonfile:
+        dic_config = json.load(jsonfile)   
+    return dic_config
     
 def update_data_configuration(path, dic):
     for key in dic.keys():
-           update_jsonfile(path + r'\channels_threshold.json',key, dic[key], valuetype=dict)
+        update_jsonfile(path + r'\channels_threshold.json',key, dic[key], valuetype=dict)
+
+def display_subplot():
+    return  html.Div([
+                dcc.Graph(id='subplot-graph')
+                ],style={}
+                )
 
 
 ####################################################################################
@@ -472,6 +518,7 @@ page1 = html.Div([
         dcc.Store(id='num-before-storage', storage_type='memory'),
         dcc.Store(id='num-today-storage', storage_type='memory'),
         dcc.Store(id='live_data', storage_type='memory'),
+        dcc.Store(id='max_min_data', storage_type='memory'),
         dcc.Store(id='live-data-configuration', storage_type='memory'),
         
         # dcc.Store(id='experiments-storage',storage_type='session'),
@@ -483,6 +530,9 @@ page1 = html.Div([
     ),
     
     modal(),
+    html.Div([
+        ], className="modal-backdrop", id="modal-backdrop", style={'display': 'none'}
+    ),
 
     html.Div(
         [
@@ -504,49 +554,12 @@ page1 = html.Div([
         ], className='row' , style={'margin-top': 5, 'margin-bottom': 5,}
     ),
     
-    html.Div([
-        
-        
-        html.Div([
-            html.Div([
-            html.Span( 'Reset config files',
-                        id="reset_config",
-                        n_clicks=0,
-                        className="button",
-                        style={"float": "right",}
-                ),
-            ], style={'margin-right': 5,}
-            ),
-            html.Div([
-                dcc.Dropdown(
-                    id="selection_config",
-                    options=[],
-                    value=''
-                )
-            ], style={"flex": "auto","width" : "100%", "float": "left",'margin-right': 5,}
-            ),
-   
-            html.Div([   
-                html.Span('Add Configuration',
-                        id="new_configuration",
-                        n_clicks=0,
-                        className="button button-primary",
-                        style={"float": "right",}
-                )
-            ]
-            ),
-
-        ],className="six columns", style={"display": "flex","flex-direction": "row", "float": "right",}
-        ),
-    ], className='row' , style={'margin-top': 5, 'margin-bottom': 5,}
-    ),
-
 
     html.Div([
         html.Div([
             html.Div([
-                html.P('Experiment:',style={}),
-        ], className= 'droptitle' ,style={"width": "80px" , "padding": 5,"float": "left", }
+                html.P('Experiment:',style={'font-weight': 'bold'}),
+        ], className= 'droptitle' ,style={"width": "90px" , "padding": 5,"float": "left", }
             ),
             html.Div([
                 dcc.Dropdown( id ='experiment',
@@ -556,12 +569,12 @@ page1 = html.Div([
                 ),
             ], className= 'dropcontent', style={"width": "100%"}
             ), 
-        ], id='experiment-framework',className='six columns',style={"display": "flex","flex-direction": "row",}   
+        ], id='experiment-framework',className='four columns',style={"display": "flex","flex-direction": "row",}   
         ),
     
         html.Div([
             html.Div([
-                html.P('Year:'),
+                html.P('Year:',style={'font-weight': 'bold'}),
             ], className= 'droptitle' ,style={ "width": "80px","padding": 5,"float": "left", }
             ), 
             html.Div([
@@ -572,16 +585,34 @@ page1 = html.Div([
                 ),
             ], className= 'dropcontent', style={"width": "100%"}
             ), 
+        ], id='years-framework', className='four columns',style={"display": "flex","flex-direction": "row",}   
+        ),
 
-        ], id='years-framework', className='six columns',style={"display": "flex","flex-direction": "row",}   
-        )
+        html.Div([
+            html.Div([
+                html.P("Scale:", style={'font-weight': 'bold'}),
+            ], className= 'droptitle' ,style={ "width": "80px","padding": 5,"float": "left", }
+            ), 
+            html.Div([
+                dcc.DatePickerRange(id='date_range',
+                            end_date = initial_end_date,
+                            start_date = initial_start_date,
+                            min_date_allowed=min_date,
+                            max_date_allowed=max_date,
+                            initial_visible_month=initial_month,
+                ),
+            ], className= 'dropcontent', style={"width": "100%"}
+            ), 
+            ],id='range_framework', className='four columns',style={"display": "flex","flex-direction": "row",}   
+        ),
+                
     ],className='row' , style={'margin-top': 5, 'margin-bottom': 5,}
     ),
 
     html.Div([
         
         html.Div([
-            html.P('Channel:'),
+            html.P('Channel:', style={'font-weight': 'bold'}),
             # head style
         ], className= 'droptitle' ,style={"width": "80px" , "padding": 5,"float": "left", }
         ),
@@ -599,77 +630,102 @@ page1 = html.Div([
 
     html.Div([
         html.Div([
-            html.Div(id="div-data-display", 
-                     style={'width': '100%', 'margin-bottom': '20px' }
+            html.Div(
+                    id="div-data-display", 
+                    style={'width': '100%', 'margin-bottom': '15px','display':'none'},
+                    className='row',
             ),
 
             html.Div([
                 dcc.Graph(id='temperature-graph')
-            ],style={}
-            )
-        ],id='graph_framework', className ='nine columns',style={'display': 'inline-block'}),
+            ], className='row',
+               style={'width': '100%', 'margin-bottom': '15px' },
+            ),
+
+            html.Div([
+                    html.Div([
+                        dcc.Dropdown(
+                            id="selection-subplot",
+                            options=[],
+                            value='',
+                            multi = False,
+                        )
+                    ],style={'width': '20%','float': 'left'}
+                    ),
+                    
+                    html.Div([
+                        html.Button('Show Subplot',n_clicks = 0, id='subplot-graph-button',)
+                    ],style={'float': 'left'}),
+            ], className='row',
+              style={'width': '100%', 'margin-bottom': '15px' }
+            ),
+
+            html.Div([
+                 dcc.Graph(id='subplot-graph')
+            ], className='row',
+               id='subplot-graph-framework',
+              style={'width': '100%', 'display': 'none'}
+            ),
+        ],id='graph_framework', className ='eight columns',style={'display': 'inline-block'}),
 
         html.Div([
+            
             html.Div([
-
+                html.Div([
+                    html.Span( 'Update config files',
+                                id="reset_config",
+                                n_clicks=0,
+                                className="button",
+                                style= {'width': '100%'}
+                        ),
+                ],style={'width': '100%', 'margin-bottom': '15px' }
+                ),
+                html.Div([
+                    dcc.Dropdown(
+                        id="selection_config",
+                        options=[],
+                        value=''
+                    )
+                ],style={'width': '100%', 'margin-bottom': '15px' }
+                ),
+    
+                html.Div([   
+                    html.Span('Add Configuration',
+                            id="new_configuration",
+                            n_clicks=0,
+                            className="button button-primary",
+                            style= {'width': '100%'}
+                    )
+                ],style={'width': '100%', 'margin-bottom': '15px' }
+                ),
+            ],style={       'height':'100%', 
+                            'padding': 10,  
+                            'borderRadius': 5, 
+                            'border': 'thin lightgrey solid',
+                            'margin-bottom': '15px'}),
+            
+                 
+            html.Div([
+                html.P("Real-time Data display:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
                 html.Div([
                      html.Span('Real-time data', 
                                     id='data-set', 
                                     n_clicks=0,
                                     className= 'button button-primary', 
                                     style= {'width': '100%'})
-
-                ],style={'width': '100%', 'margin-bottom': '20px' }
+                ],style={'width': '100%', 'margin-bottom': '15px' }
                 ),
 
                 html.Div([
                      html.Span('Store Data Config', 
                                     id='store-data-config', 
                                     n_clicks=0,
-                                    className= 'button button-primary', 
+                                    className= 'button', 
                                     style= {'width': '100%', 'display': 'none'})
-
-                ],style={'width': '100%', 'margin-bottom': '20px' }
-                ),
-
-                html.Div([
-                    html.Button('Autoscale', 
-                                    id='autoscale', 
-                                    n_clicks=0,
-                                    style= {'width': '100%'})
-                ], style={'width': '100%', 'margin-bottom': '20px' }
-                ),
-
-                html.Div([
-                    html.P("Scale:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
-
-                    dcc.DatePickerRange(id='date_range',
-                        end_date = initial_end_date,
-                        start_date = initial_start_date,
-                        min_date_allowed=min_date,
-                        max_date_allowed=max_date,
-                        initial_visible_month=initial_month,
-                    ),
-                ],id='range_framework',style={'width': '100%', 'margin-bottom': '20px'}
-                ),
                 
-
-
-                html.Div([
-                    html.P("Plot Display mode:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
-
-                    dcc.RadioItems(
-                        options=[
-                            {'label': ' Overlap', 'value': 'overlap'},
-                            {'label': ' Timeslider', 'value': 'timeslider'},
-                            {'label': ' Separate', 'value': 'separate'},
-                        ],
-                        value='overlap',
-                        id='display_mode'
-                    ),
-                ], style={'width': '100%', 'margin-bottom': '20px' }
+                ],style={'width': '100%', 'margin-bottom': '15px' }
                 ),
-                
+
                 html.Div([
                     html.P("Update Speed:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
 
@@ -687,7 +743,37 @@ page1 = html.Div([
                             searchable=False
                         )
                     ]),
-                ], style={'width': '100%', 'margin-bottom': '20px' }
+                ], style={'width': '100%', 'margin-bottom': '15px' }
+                ),
+            ],style={       'height':'100%', 
+                            'padding': 10,  
+                            'borderRadius': 5, 
+                            'border': 'thin lightgrey solid',
+                            'margin-bottom': '15px'}),
+
+            html.Div([
+
+                html.Div([
+                    html.Button('Autoscale', 
+                                    id='autoscale', 
+                                    n_clicks=0,
+                                    style= {'width': '100%'})
+                ], style={'width': '100%', 'margin-bottom': '15px' }
+                ),
+
+
+                html.Div([
+                    html.P("Plot Display mode:", style={'font-weight': 'bold', 'margin-bottom': '10px'}),
+
+                    dcc.RadioItems(
+                        options=[
+                            {'label': ' Overlap', 'value': 'overlap'},
+                            {'label': ' Timeslider', 'value': 'timeslider'},
+                        ],
+                        value='overlap',
+                        id='display_mode'
+                    ),
+                ], style={'width': '100%', 'margin-bottom': '15px' }
                 ),
 
                 html.Div([
@@ -695,14 +781,14 @@ page1 = html.Div([
                     
                     html.Div(id="div-num-display")
 
-                ],style={'width': '100%', 'margin-bottom': '20px' }
+                ],style={'width': '100%', 'margin-bottom': '15px' }
                 ),
                 
             ],style={       'height':'100%', 
-                            'padding': 15,  
+                            'padding': 10,  
                             'borderRadius': 5, 
                             'border': 'thin lightgrey solid'})
-        ],id='select_framework', className ='three columns', style={
+        ],id='select_framework', className ='four columns', style={
                             'height':'100%', 
                             'display': 'inline-block',
                             'float': 'right',}
@@ -726,13 +812,19 @@ app.layout = html.Div([
 #
 ####################################################################################
 # hide/show modal
-@app.callback(Output("configuration_modal", "style"), 
+@app.callback(Output("modal-container", "style"), 
             [Input("new_configuration", "n_clicks"),])
 def display_configuration_modal_callback(n):
     if n > 0:
-        return {"display": "block"}
+        return {"display": "inline"}
     return {"display": "none"}
 
+@app.callback(Output("modal-backdrop", "style"), 
+            [Input("new_configuration", "n_clicks"),])
+def display_configuration_modal_callback(n):
+    if n > 0:
+        return {"display": "inline"}
+    return {"display": "none"}
 
 # reset to 0 add button n_clicks property
 @app.callback(
@@ -764,7 +856,8 @@ def static_file(path):
 #
 ####################################################################################
 # Configuration data
-@app.callback([Output('new_configuration_exp', 'options'), Output('new_configuration_exp', 'value')],
+@app.callback([Output('new_configuration_exp', 'options'), 
+               Output('new_configuration_exp', 'value')],
               [Input('exp_info','data')])
 def new_experiments(info):
     if info:  
@@ -778,8 +871,8 @@ def new_experiments(info):
 
 @app.callback([Output('new_configuration_year', 'options'),
               Output('new_configuration_year', 'value'),],
-              [Input('new_configuration_exp', 'value'), 
-              Input('exp_info','data')],)
+              [Input('new_configuration_exp', 'value'),], 
+              [State('exp_info','data')])
 def new_years(exp, info):
     if exp: 
         if info:
@@ -789,12 +882,17 @@ def new_years(exp, info):
             return no_update, no_update
     return no_update, no_update
 
+
+
+
+
+
 @app.callback([Output('new_configuration_channel', 'options'),
                Output('new_configuration_channel', 'value'),],
               [Input('new_configuration_exp', 'value'),
-              Input('new_configuration_year', 'value'),
-              Input('date_range', 'start_date'),
-              Input('date_range', 'end_date')],)
+              Input('new_configuration_year', 'value')],
+              [State('date_range', 'start_date'),
+              State('date_range', 'end_date')],)
 def new_channels(exp, year, start_date, end_date):
     if exp is not None and year is not None:    
         path = path_lab + '\\' + exp + r'\data' + '\\' + year
@@ -811,6 +909,7 @@ def new_channels(exp, year, start_date, end_date):
         else:
             date_list_td = datelist(start_date_td, end_date_td) # timedate type
         
+        print(path)
         if os.path.isfile(path + r'\channels.json'): 
             pass
         else:
@@ -818,20 +917,15 @@ def new_channels(exp, year, start_date, end_date):
             write_channels_config(path)  
         
         # read channel config file
-        with open(path + r'\channels.json') as jsonfile:
+        with open(path + r'\channels.json',  encoding='utf-8') as jsonfile:
             data = json.load(jsonfile)     
         
         # search all channels in the date interval
-        for date in date_list_td:
-            single_date_str = date.strftime(r'%y-%m-%d')
-            if single_date_str in data.keys():
-                channels_update.update(set(data[single_date_str]))
-            else: 
-                pass
+        for date in data.keys():
+            channels_update.update(set(data[date]))
         
         channels_update = list(channels_update)
-        data['channels'] = channels_update
-        
+
         if channels_update:
             return [{'label': i, 'value': i} for i in channels_update], channels_update
         else:
@@ -859,33 +953,18 @@ def new_configuration(n, data, name, exp, year, mode, figure, path, channels):
         data['figure'] = figure
         data['path'] = path
         data['channels'] = channels
-        update_jsonfile(path_lab + r'\user.json', name, data, valuetype=dict)
+        update_jsonfile(path_user + r'\user.json', name, data, valuetype=dict)
         
         options = []
-        with open(path_lab + r'\user.json') as jsonfile:
+        with open(path_user + r'\user.json',  encoding='utf-8') as jsonfile:
             data = json.load(jsonfile)
             options = [{'label': i, 'value': i} for i in data.keys()]
         return options
-    else: 
-        return no_update
-
-# Reset config file  
-@app.callback(Output('interval-info-update', 'n_intervals'),
-              [Input('reset_config', 'n_clicks')],)
-def reset_configuration(n):
-    if n>0:
-        # rewrite exp_info.json
-        write_info(path_lab)
-        with open(path_lab + r'\exp_info.json', 'r') as json_file:
-            data = json.load(json_file)
-
-        # rewrite channels.json
-        for exp in data['experiments']:
-            for year in data['years'][exp]:
-                path = path_lab + '\\' + exp + r'\data' + '\\' + year
-                write_channels_config(path)
-        return  0
-    return no_update
+    elif n==0: 
+        with open(path_user + r'\user.json',  encoding='utf-8') as jsonfile:
+            data = json.load(jsonfile)
+            options = [{'label': i, 'value': i} for i in data.keys()]
+        return options
 
 ####################################################################################
 # Data Callback
@@ -895,27 +974,22 @@ def reset_configuration(n):
 ####################################################################################
 # Get the experiment information 
 @app.callback(Output('exp_info','data'),
-              [Input('interval-info-update', 'n_intervals')],
-              [State('exp_info','data')])
-def update_exp_info(n_intervals, data):
+              [Input('interval-info-update', 'n_intervals'),
+              Input('reset_config', 'n_clicks'),],
+              [State('selection_config', 'value'),])
+def update_exp_info(n_intervals, reset_click, value):
+    # if reset new configuration, update 'path_lab'
+    if value and reset_click>0: 
+        global path_lab
+        with open(path_user + r'\user.json', 'r') as json_file:
+            data = json.load(json_file)
+        
+        if data and data[value]['path'] and path_lab !=  data[value]['path']:
+            path_lab = data[value]['path']
+            n_intervals = 0
+            
     # 0: the first implementation
     if n_intervals is 0:
-
-        # rewrite exp_info.json
-        write_info(path_lab)
-        with open(path_lab + r'\exp_info.json', 'r') as json_file:
-            data = json.load(json_file)
-
-        # rewrite channels.json
-        for exp in data['experiments']:
-            for year in data['years'][exp]:
-                path = path_lab + '\\' + exp + r'\data' + '\\' + year
-                write_channels_config(path)
-        
-        return data
-    # 1: the configuration file is reset
-    elif n_intervals is 1:
-
         # read exp information
         if os.path.isfile(path_lab + r'\exp_info.json'):
             pass
@@ -924,7 +998,7 @@ def update_exp_info(n_intervals, data):
         else:
             write_info(path_lab)
         
-        with open(path_lab + r'\exp_info.json', 'r') as json_file:
+        with open(path_lab + r'\exp_info.json', 'r',  encoding='utf-8') as json_file:
             data = json.load(json_file)       
         return data
     else: 
@@ -932,70 +1006,55 @@ def update_exp_info(n_intervals, data):
 
         
 # Get the experiment list automatically every 24h
-@app.callback([Output('experiment', 'options'), Output('experiment', 'value')],
-              [Input('exp_info','data')])
-def update_experiments(info):
+@app.callback([Output('experiment', 'options'),
+               Output('experiment', 'value')],
+              [Input('exp_info','data'), 
+               Input('reset_config', 'n_clicks')],
+              [State('selection_config', 'value')])
+def update_experiments(info, reset_click, value):
+    exp_options = no_update
+    exp = no_update
+     
     if info:  
         experiments = info['experiments']
-        temp = {}
-        temp['experiments'] = experiments
-        
-        print(experiments)
-        return [{'label': i, 'value': i} for i in experiments], experiments[0]
-    else:
-        return no_update, no_update
+        exp_options = [{'label': i, 'value': i} for i in experiments]
+        exp = experiments[0]
 
-# # Information is sotred individually
-# # Get the experiment list automatically every 24h
-# @app.callback([Output('experiment', 'options'),
-#                Output('experiment', 'value'),
-#               Output('experiments-storage','data')],
-#               [Input('interval-info-update', 'n_intervals')],
-#               [State('experiments-storage','data')])
-# def update_experiments(n_intervals, data):
-#     if n_intervals is 0:
-#         a = {}
-#         try:
-#             experiment_update = get_folder_names(all_folder_paths(path_lab))
-#         except FileNotFoundError as error:
-#             print(error)
-#             print('Cannot get the experiment list')
-#             return no_update, no_update, no_update
-#         else:
-#             data = data or {}
-#             a['experiments'] = experiment_update
-#             return [{'label': i, 'value': i} for i in experiment_update], experiment_update[0], a
-#     return no_update, no_update, no_update
+    if value and reset_click>0: 
+        with open(path_lab + r'\user.json', 'r') as json_file:
+            data = json.load(json_file)
+
+        if value in data.keys() and data[value]['experiment']:
+            exp = data[value]['experiment']
+
+    return exp_options, exp
+
 ###########################################
 # Get year list automatically
 @app.callback([Output('year', 'options'),
               Output('year', 'value'),],
               [Input('experiment', 'value'), 
-              Input('exp_info','data')],)
-def update_years(exp, info):
-    if exp: 
-        if info:
-            years_update = info['years'][exp] 
-            return [{'label': i, 'value': i} for i in years_update], years_update[-1]
-        else: 
-            return no_update, no_update
-    return no_update, no_update
-
-# # Get year list automatically
-# @app.callback([Output('year', 'options'),
-#               Output('year', 'value'),
-#                Output('years-storage','data')],
-#               [Input('experiment', 'value')],
-#               [State('years-storage','data')])
-# def update_years(exp, data):
-
-#     if exp is not None: 
-#         years_update = get_folder_names(all_folder_paths(path_lab + '\\' + exp + r'\data'))
-#         data = data or {}
-#         data['years'] = years_update
-#         return [{'label': i, 'value': i} for i in years_update], years_update[-1], data
-    # else: 
-    #     return no_update, no_update, no_update
+              Input('exp_info','data'),
+              Input('reset_config', 'n_clicks')],
+              [State('selection_config', 'value')])
+def update_years(exp, info, reset_click, value):
+    year_options = no_update
+    year = no_update
+    
+    if exp and info:
+        years_update = info['years'][exp] 
+        year_options = [{'label': i, 'value': i} for i in years_update]
+        year = years_update[-1]
+        
+    if value and reset_click>0: 
+        with open(path_lab + r'\user.json', 'r') as json_file:
+            data = json.load(json_file)
+        
+        if data[value]['year']:
+            year = data[value]['year']
+            
+    return year_options, year
+    
 ############################################
 @app.callback([Output('channels_dropdown', 'options'),
                Output('channels_dropdown', 'value'),
@@ -1003,13 +1062,27 @@ def update_years(exp, info):
               [Input('experiment', 'value'),
               Input('year', 'value'),
               Input('date_range', 'start_date'),
-              Input('date_range', 'end_date')],
-              [State('channels-storage','data')])
-def update_channels(exp, year, start_date, end_date, data):
-    if exp is not None and year is not None:    
+              Input('date_range', 'end_date'),
+              Input('reset_config', 'n_clicks')],
+              [State('selection_config', 'value')])
+def update_channels(exp, year, start_date, end_date,reset_click, value):
+    # By default
+    options = no_update
+    channels_selected = no_update
+    data_returned = no_update
+    data_user = None
+    print(exp, year, start_date, end_date,reset_click, value)
+    if value and reset_click>0: 
+        with open(path_lab + r'\user.json', 'r') as json_file:
+            data_user = json.load(json_file)
+        
+        exp = data_user[value]['experiment']
+        year = data_user[value]['year']
+
+    if exp and year:    
         path = path_lab + '\\' + exp + r'\data' + '\\' + year
         channels_update = set()
-        data = data or {}
+        data_channel = {}
         
         # the date interval
         try:
@@ -1021,6 +1094,7 @@ def update_channels(exp, year, start_date, end_date, data):
         else:
             date_list_td = datelist(start_date_td, end_date_td) # timedate type
         
+        # check if there is channels configuration file
         if os.path.isfile(path + r'\channels.json'): 
             pass
         else:
@@ -1028,26 +1102,58 @@ def update_channels(exp, year, start_date, end_date, data):
             write_channels_config(path)  
         
         # read channel config file
-        with open(path + r'\channels.json') as jsonfile:
+        with open(path + r'\channels.json',  encoding='utf-8') as jsonfile:
             data = json.load(jsonfile)     
-        
+
         # search all channels in the date interval
         for date in date_list_td:
             single_date_str = date.strftime(r'%y-%m-%d')
             if single_date_str in data.keys():
                 channels_update.update(set(data[single_date_str]))
             else: 
-                pass
-        
+                write_channels_config(path)
+                if single_date_str in data.keys():
+                    channels_update.update(set(data[single_date_str]))
+
         channels_update = list(channels_update)
-        data['channels'] = channels_update
+        data_channel['channels'] = channels_update
         
-        if channels_update:
-            return [{'label': i, 'value': i} for i in channels_update], channels_update, data
-        else:
-            return no_update, no_update, no_update
-    else:
-        return no_update, no_update, no_update
+        options = [{'label': i, 'value': i} for i in channels_update]
+        channels_selected = channels_update
+        data_returned = data_channel
+       
+        if value and reset_click>0: 
+            channels_selected = data_user[value]['channels']
+    
+    return options, channels_selected, data_returned
+
+
+
+@app.callback(Output('selection-subplot', 'options'),
+              [Input('channels_dropdown', 'options'),])
+def update_selection_subplot(options):
+    if options:
+        return options
+    else: 
+        return no_update
+
+@app.callback(Output('selection-subplot', 'value'),
+              [Input('reset_config', 'n_clicks')],
+              [State('selection_config', 'value')])
+def update_selection_value(reset_click, value):
+    sub_channel = no_update
+    
+    if value and reset_click>0: 
+        with open(path_lab + r'\user.json', 'r') as json_file:
+            data = json.load(json_file)
+            
+        if data[value]['channels']:
+            channels = data[value]['channels']
+            sub_channel = channels[0]
+    
+    return sub_channel
+    
+
 
 # Get effective date range 
 @app.callback([Output('date_range', 'min_date_allowed'),
@@ -1056,9 +1162,11 @@ def update_channels(exp, year, start_date, end_date, data):
                 Output('date_range', 'start_date'),
                 Output('date_range', 'end_date'),],
                [Input('experiment', 'value'),
-               Input('year', 'value')])
-def update_date_range(exp, year):
-    if exp is not None and year is not None: 
+               Input('year', 'value'),
+               Input('reset_config', 'n_clicks')],
+               [State('selection_config', 'value')])
+def update_date_range(exp, year, reset_click, value):
+    if exp and year: 
         path = path_lab + '\\' + exp + r'\data' + '\\' + year
         dates = []
         
@@ -1069,7 +1177,7 @@ def update_date_range(exp, year):
             write_channels_config(path)  
         
         # read channel config file
-        with open(path + r'\channels.json') as jsonfile:
+        with open(path + r'\channels.json',  encoding='utf-8') as jsonfile:
             data = json.load(jsonfile)    
         
         for date in data.keys():
@@ -1078,6 +1186,13 @@ def update_date_range(exp, year):
         min_date =min(dates)
         max_date = max(dates)
 
+        if value and reset_click>0: 
+            with open(path_lab + r'\user.json', 'r') as json_file:
+               data = json.load(json_file)
+            
+            if data[value]['mode'] and data[value]['mode'] == "Live mode":
+                max_date = datetime.today().date()
+
         return min_date, max_date, max_date, max_date, max_date
     else:
         return no_update, no_update, no_update, no_update, no_update
@@ -1085,8 +1200,10 @@ def update_date_range(exp, year):
 # Callback the update mode 
 @app.callback(Output('dropdown-interval-control', 'value'),
                 [Input('date_range', 'start_date'),
-                 Input('date_range', 'end_date')])
-def storage_mode(start_date, end_date):
+                 Input('date_range', 'end_date'),
+                 Input('reset_config', 'n_clicks')],
+                 [State('selection_config', 'value')])
+def storage_mode(start_date, end_date, reset_click, value):
     try:
         end_date = datetime.strptime(end_date,r'%Y-%m-%d')
         start_date = datetime.strptime(start_date, r'%Y-%m-%d')
@@ -1095,28 +1212,24 @@ def storage_mode(start_date, end_date):
         print("Start day and end day have wrong filetype.")
 
     # Select record mode
+    update_speed = 'no' 
     if end_date.date() < datetime.today().date():
         print('The update is needless for the data selected.' )
-        return 'no'
+        update_speed = 'no' 
     else: 
-        return 'regular' 
-
-# Display the store button
-@app.callback([Output('store-data-config', 'style'),
-     Output('data-set', 'children')],
-    [Input('data-set', 'n_clicks')],
-    [State('store-data-config', 'style')])
-def stop_production(n, current):
-    if n>0:
-        if current['display'] =='none':
-            return {'display': 'block'}, 'Close Data Display'
-        elif current['display'] =='block':
-            return {'display': 'none'}, 'Real-time data'
-        else:
-            return no_update, no_update
-    else:
-        return no_update, no_update
-
+        update_speed = 'regular'  
+    
+    if value and reset_click>0: 
+        with open(path_lab + r'\user.json', 'r') as json_file:
+            data = json.load(json_file)
+        
+        if data[value]['mode']:
+            if data[value]['mode'] == "Live mode":
+                update_speed = 'regular' 
+            elif data[value]['mode'] == "No update":
+                update_speed = 'no' 
+    
+    return update_speed
 
 @app.callback(Output('interval-log-update', 'interval'),
               [Input('dropdown-interval-control', 'value')])
@@ -1135,31 +1248,53 @@ def update_interval_log_update(interval_rate):
     elif interval_rate == 'no':
         return 24 * 60 * 60 * 1000
 
+# Display the store button
+@app.callback([Output('div-data-display', 'style'),
+                Output('store-data-config', 'style'),
+                Output('data-set', 'children')],
+                [Input('data-set', 'n_clicks')],
+                [State('store-data-config', 'style')])
+def stop_production(n, current):
+    if n>0:
+        if current['display'] =='none':
+            return {'display': 'block'}, {'display': 'block'}, 'Close Data Display'
+        elif current['display'] =='block':
+            return {'display': 'none'}, {'display': 'none', 'background-color': '#FE5C5C',
+  'border-color':'#FE5C5C'}, 'Real-time data'
+        else:
+            return no_update, no_update, no_update
+    else:
+        return no_update, no_update, no_update
+
 # Store the live data configuration (threshold, unit) 
 @app.callback(Output('live-data-configuration', 'data'),
-              [Input('data-set', 'n_clicks')],
-              [State('live_data', 'data'),
-               State('experiment', 'value'),
-               State('year', 'value')])
-def data_configuration(n, data, exp, year):
-    if exp:
-        if year:
-            if data: 
-                path = path_lab + '\\' + exp + r'\data' + '\\' + year
-                return get_data_configuratin(path, data)
-            else: 
-                return no_update
-        else:
-            return no_update
+              [Input('data-set', 'n_clicks'), 
+               Input('experiment', 'value'),
+               Input('year', 'value')],
+              [State('live_data', 'data'),])
+def data_configuration(title, exp, year, data):
+
+    if exp and year and data:
+        path = path_lab + '\\' + exp + '\\data' + '\\' + year
+        
+        # the inital setting
+        dic = {}
+        
+        for key in data.keys():
+            dic[key]={'unit':'', 'min':data[key], 'max':data[key]}
+
+        dic_config = get_data_configuratin(path, dic)
+        print(dic_config)
+        return dic_config 
     else:
         return no_update
 
+
 # Update the real-time data
 @app.callback(Output('div-data-display', 'children'),
-              [Input('data-set', 'n_clicks'),
-               Input('live_data', 'data'),],
+              [Input('live_data', 'data'),],
               [State('live-data-configuration', 'data')])
-def data_display(n, data, dic_config):
+def data_display(data, dic_config):
     if dic_config:
         if data: 
             return live_data_manip(dic_config, data)
@@ -1175,12 +1310,13 @@ def data_display(n, data, dic_config):
                Output('num-before-storage','data'),],
                   [Input('date_range', 'start_date'),
                   Input('date_range', 'end_date'),
-                  Input('experiment', 'value'),
                   Input('channels-storage', 'data'),],
-                 [State('before-log-storage', 'children'),
+                 [State('experiment', 'value'),
+                  State('year', 'value'),
+                  State('before-log-storage', 'children'),
                   State('num-before-storage','data'),])
-def get_before_log(start_date, end_date, exp, data_channel, before, num_before):
-    if exp is not None:
+def get_before_log(start_date, end_date, data_channel, exp, year,  before, num_before):
+    if exp and year and end_date and start_date and data_channel:
         # get the path from the selection of experiment
         path = path_lab +'\\' + exp +'\\data'
         
@@ -1193,94 +1329,47 @@ def get_before_log(start_date, end_date, exp, data_channel, before, num_before):
             print(error)
             print("start_date and end_date have wrong filetype.") 
         
-        # the first time, the list of date_list_old is initialized as an empty list
-        if before is not None:
-            # 
-            if 'exp_before' in before:
-                # the stored data is same as the selected exp
-                if exp == before['exp_before']:
-                    
-                    date_list_old = list(before.keys())
-                    if 'exp_before' in date_list_old:
-                                    date_list_old.remove('exp_before')
-                    if 'exp_today' in date_list_old:
-                                    date_list_old.remove('exp_today')
-
-                    # date_list_old is not empty 
-                    if  date_list_old:
-                        date_list_temp = []
-                        for date in date_list_old:
-                            date_list_temp.append(datetime.strptime(date, r'%Y-%m-%d'))
-                        
-                        start_date_old = min(date_list_temp)
-                        end_date_old = max(date_list_temp)
-                        date_list_old = date_list_temp
-                    else:
-                        date_list_old = []
-                    
-                    # the different dates between two lists
-                    date_update = [i.date() for i in date_list if i not in date_list_old]
+        if end_date.date() != datetime.today().date():
+            is_clear_data = False
+            # if before is None(empty)
+            if not before:
+                date_update = date_list
             
-                    # remove today, it will update in another callback
-                    if datetime.today().date() in date_update:
-                        date_update.remove(datetime.today().date())
-                    
-                    # get the channel set from the channel storage
-                    if  data_channel is not None:
-                        cache_dic = {}
-                        num_total = 0
-                        channel_set = data_channel['channels'] 
-                        
-                        for single_date in date_update:
-                            # extract one day's data 
-                            try:
-                                df = get_1day_data_str(single_date, channel_set, path)
-                                single_date_str = single_date.strftime(r'%Y-%m-%d')
-                            except Exception as error: 
-                                print(error)
-                                print("Fail to read the data in disk.")
-                            else: 
-                                print('Succeed to read the before data in disk.')
-                            
-                            try:
-                                num_df = len(df)
-                                json_data = df.to_json(orient='split')
-                                # create individual store component according to the date
-                                cache_dic[single_date_str] = json_data
-                            except Exception as error: 
-                                print(error)
-                                print("Fail to transfer the data to json type.")
-                            else: 
-                                print('Succeed to transfer the data to json type.')
-                                num_total = num_total + num_df
+            # the previous 'before' stores the same experiment as the selected
+            elif before and 'exp_before' in before and exp == before['exp_before']:
+                date_list_old = list(before.keys())
                 
-                        if num_before is not None:
-                            num_total = num_before['num_before'] + num_total
-                        
-                        before['exp_before'] = exp
-                        before.update(cache_dic)  
-                        return before, {'num_before': num_total}
-                    else:
-                        print("The channel set is empty.")
-                        return no_update, no_update
-                else:
-                    return None, {'num_before': 0}
-            else: 
-                return no_update, no_update
-        else:
-            # before is None 
-            date_update = date_list
+                # remove the key indicating the experiment name
+                if 'exp_before' in date_list_old:
+                    date_list_old.remove('exp_before')
+                if 'exp_today' in date_list_old:
+                    date_list_old.remove('exp_today')
+                     
+                # convert 'date_list_old' in datetime type
+                if  date_list_old:
+                    date_list_temp = []
+                    for date in date_list_old:
+                        date_list_temp.append(datetime.strptime(date, r'%Y-%m-%d'))
+                    date_list_old = date_list_temp
+
+                # the different dates between two lists
+                date_update = [i.date() for i in date_list if i not in date_list_old]
             
-            # remove today, it will update in another callback
-            if datetime.today().date() in date_update:
-                date_update.remove(datetime.today().date())
-            
-            # get the channel set from the channel storage
-            if  data_channel is not None:
+            elif before and 'exp_before' in before and exp != before['exp_before']:
+                is_clear_data = True 
+            else:
+                date_update = []
+
+            if date_update and not is_clear_data: 
+                # remove today, it will update in another callback
+                if datetime.today().date() in date_update:
+                    date_update.remove(datetime.today().date())      
+                
+                # get the channel set from the channel storage
                 cache_dic = {}
                 num_total = 0
                 channel_set = data_channel['channels'] 
-                 
+                
                 for single_date in date_update:
                     # extract one day's data 
                     try:
@@ -1289,8 +1378,6 @@ def get_before_log(start_date, end_date, exp, data_channel, before, num_before):
                     except Exception as error: 
                         print(error)
                         print("Fail to read the data in disk.")
-                    else: 
-                        print('Succeed to read the before data in disk.')
                     
                     try:
                         num_df = len(df)
@@ -1302,14 +1389,23 @@ def get_before_log(start_date, end_date, exp, data_channel, before, num_before):
                         print("Fail to transfer the data to json type.")
                     else: 
                         print('Succeed to transfer the data to json type.')
-                    
-                    num_total = num_total + num_df
+                        num_total = num_total + num_df
+            
+                    if num_before:
+                        num_total = num_before['num_before'] + num_total
 
-                cache_dic['exp_before'] = exp   
-                return cache_dic, {'num_before': num_total}
+                before = before or {}
+                before.update(cache_dic)
+                before['exp_before'] = exp
+
+                return before, {'num_before': num_total}
+            
+            elif date_update and is_clear_data:  
+                return None, {'num_before': 0}
             else:
-                print("The channel set is empty.")
                 return no_update, no_update
+        else: 
+            return None, {'num_before': 0}
     else:
         return no_update, no_update
 
@@ -1323,56 +1419,43 @@ def get_before_log(start_date, end_date, exp, data_channel, before, num_before):
                   Input('date_range', 'start_date'),
                   Input('date_range', 'end_date')],
                   [State('today-log-storage', 'children')])
-def get_today_log(speed_value, n_intervals, exp, channels, start_date, end_date, data):
+def get_today_log(speed_value, n_intervals, exp, channels, start_date, end_date, today):
+    if exp and channels and start_date and end_date:
+        # get the path from the selection of experiment
+        path = path_lab +'\\' + exp +'\\data'
+        try:
+            end_date = datetime.strptime(end_date, r'%Y-%m-%d')
+            start_date = datetime.strptime(start_date, r'%Y-%m-%d')
+        except TypeError as error:      
+            print(error)
+            print("start_date and end_date have wrong filetype.")
 
-    if exp is not None:   
-        if channels is not None:
-            
-            if data is not None:
-                if exp != data['exp_today']:
-                    data.clear()
+        # Select live mode
+        if end_date.date() == datetime.today().date(): 
+            today_str = datetime.today().strftime(r'%Y-%m-%d')
+            num = 0
+            cache_dic = {}
 
-            # get the path from the selection of experiment
-            path = path_lab +'\\' + exp +'\\data'
-            
+            # get the channel set from the channel storage
+            channel_set = channels['channels']   
+
+            today = today or {}
             try:
-                end_date = datetime.strptime(end_date, r'%Y-%m-%d')
-                start_date = datetime.strptime(start_date, r'%Y-%m-%d')
-            except TypeError as error:      
+                df = get_1day_data_str(datetime.today().date(),channel_set, path)
+            except FileNotFoundError as error:      
                 print(error)
-                print("start_date and end_date have wrong filetype.")
-
-            # Select live mode
-            if end_date.date() == datetime.today().date(): 
-                
-                today_str = datetime.today().strftime(r'%Y-%m-%d')
-
-                num = 0
-                
-                # get the channel set from the channel storage
-                channel_set = channels['channels']           
-                
-                try:
-                    df = get_1day_data_str(datetime.today(),channel_set, path)
-
-                except FileNotFoundError as error:      
-                    print(error)
-                    print("There is no data is placed in the today\'s directory.")
-                
+                print("There is no data is placed in the today\'s directory.")
+            else: 
                 num =len(df) 
                 json_data = df.to_json(orient='split')
-                
-                if data is not None:
-                    data[today_str] = json_data
-                else:
-                    data = {}
-                    data[today_str] = json_data
-                
-                data['exp_today'] = exp
-                return data, {'num_today': num}
-            else: 
-                return no_update, no_update
-        else: 
+                cache_dic[today_str] = json_data
+                cache_dic['exp_today'] = exp
+            
+            today = today or {}
+            today.update(cache_dic)
+            today['exp_today'] = exp
+            return today, {'num_today': num}
+        else:
             return no_update, no_update
     else:
         return no_update, no_update
@@ -1397,7 +1480,7 @@ def update_num_display_and_time(num_before, num_today, n_intervals):
     total_num = num_1 + num_2
     return html.H2('{0}'.format(total_num), style={ 'margin-top': '3px'})
 
-n_clicks_autoscale = 0
+
 @app.callback([Output('temperature-graph', 'figure'),
                Output('live_data', 'data')],
             [Input('before-log-storage', 'children'),
@@ -1410,64 +1493,15 @@ n_clicks_autoscale = 0
             [State('temperature-graph', 'figure'),
              State('temperature-graph', 'relayoutData')])
 def update_graph(before_data, end_date, start_date, today_data, selected_dropdown_value, display_mode_value, click, figure, relayout):
-    
-    global n_clicks_autoscale
-    if click is None:
-        click = 0
-    if click>n_clicks_autoscale:
-        do_autoscale = True
-        print("autoscale was clicked")
-        n_clicks_autoscale = click
-    else:
-        do_autoscale = False
+    # use 'datetime64' date type to reduce the calculation time
+    start_date = np.datetime64(start_date)
+    end_date =  np.datetime64(end_date)
+    date_list = np.arange(start_date, end_date + np.timedelta64(1, 'D') , dtype='datetime64[D]') 
 
-    layout_set1 = {'colorway': color_list,
-                       'title':"The sensor channel monitor",
-                       'height':700,
-                        'xaxis':{"title":"Date",
-                                'rangeselector': {'buttons': list([
-                                {'count': 10, 'label': '10m', 'step': 'minute', 'stepmode': 'backward'},
-                                {'count': 1, 'label': '1h', 'step': 'hour', 'stepmode': 'backward'},
-                                {'count': 6, 'label': '6h', 'step': 'hour', 'stepmode': 'backward'},
-                                {'count': 1, 'label': '1 day', 'step': 'day', 'stepmode': 'backward'},
-                                {'count': 3, 'label': '3 days', 'step': 'day', 'stepmode': 'backward'},
-                                {'count': 7, 'label': '1 week', 'step': 'day', 'stepmode': 'backward'},
-                                {'step': 'all'}])}, 'type': 'date'},
-                        'margin':{'l':60, 'b': 40, 't': 80, 'r': 10},
-                        'yaxis' : {"title":"Value",
-                                },
-                }
-
-    layout_set2 = {'colorway': color_list,
-                       'title':"The sensor channel monitor",
-                       'height':700,
-                        'xaxis':{"title":"Date",
-                                'rangeselector': {'buttons': list([
-                                {'count': 10, 'label': '10m', 'step': 'minute', 'stepmode': 'backward'},
-                                {'count': 1, 'label': '1h', 'step': 'hour', 'stepmode': 'backward'},
-                                {'count': 6, 'label': '6h', 'step': 'hour', 'stepmode': 'backward'},
-                                {'count': 1, 'label': '1 day', 'step': 'day', 'stepmode': 'backward'},
-                                {'count': 3, 'label': '3 days', 'step': 'day', 'stepmode': 'backward'},
-                                {'count': 7, 'label': '1 week', 'step': 'day', 'stepmode': 'backward'},
-                                {'step': 'all'}])}, 'type': 'date',
-                        'rangeslider':{'visible':'True'}},
-                        'margin':{'l':60, 'b': 40, 't': 80, 'r': 10},
-                        'yaxis' : {"title":"Value",
-                                },
-                }
-    
-    start_date = datetime.strptime(start_date, r'%Y-%m-%d')
-    end_date = datetime.strptime(end_date, r'%Y-%m-%d')
-    date_list = datelist(start_date, end_date)
-  
-    if end_date.date() == datetime.today().date(): 
-        # to keep same format for single channel or multiple channels
-        if not isinstance(selected_dropdown_value, (list,)):
-            selected_dropdown_value = [selected_dropdown_value]
-        
+    if end_date == np.datetime64('today'):   
         if today_data is not None:
             trace = []
-            dis = {}
+            last_data = {}
 
             # read data from json cache
             if before_data is not None:
@@ -1484,21 +1518,25 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
             
             data_df = pd.DataFrame()
             for date in date_list:
-                date_str = date.strftime(r'%Y-%m-%d')
+                date_str = str(date)
                 
                 if date_str in date_log_list:
                     temp_df = pd.DataFrame()
-                    temp_df = pd.read_json(before_data[date_str], orient='split')
+                    temp_df = pd.read_json(before_data[date_str], orient='split', convert_dates =True)
                     data_df = pd.concat([data_df, temp_df], axis=0) 
 
             # selected_dropdown_value is not None or not empty
-            if selected_dropdown_value is not None or selected_dropdown_value:
+            if selected_dropdown_value is not None and selected_dropdown_value:
+                # to keep same format for single channel or multiple channels
+                if not isinstance(selected_dropdown_value, (list,)):
+                    selected_dropdown_value = [selected_dropdown_value]
                 
                 maxtime_list = []
                 mintime_list = []
-
+                
+                # append each traces
                 for channel in selected_dropdown_value:
-                    channel_time = 'Time_'+ channel
+                    channel_time = channel+'_time'
 
                     # drop all NaN
                     if channel in data_df:
@@ -1511,22 +1549,14 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
                         mintime_list.append(temp[channel_time].iloc[0])
 
                         trace.append(go.Scatter(x=temp[channel_time], y=temp[channel],mode='lines', opacity=0.7,name=channel, textposition='bottom center'))
-                        dis[channel] = temp[channel].iloc[-1]
+                        last_data[channel] = temp[channel].iloc[-1]
                  
                 # the time of last data
-                # 'pd.to_datetime' converts the time in UTC, so here we use 'datetime.strptime' to keep same format 
-                maxtime =datetime.today()
+                maxtime = np.datetime64('now')
                 if maxtime_list:
-                    max_list =[]
-                    for time in maxtime_list:
-                        max_list.append(datetime.strptime(time, '%Y-%m-%d %H:%M:%S'))
-                    maxtime = max(max_list)
-                
+                    maxtime = max(maxtime_list)
                 if mintime_list:
-                    min_list =[]
-                    for time in mintime_list:
-                        min_list.append(datetime.strptime(time, '%Y-%m-%d %H:%M:%S'))
-                    mintime = max(min_list)
+                    mintime = max(mintime_list)
 
                 # overlap display
                 if display_mode_value == 'overlap':
@@ -1536,65 +1566,35 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
                 elif display_mode_value == 'timeslider':
                     figure = {'data': trace, 'layout': layout_set2}
                 
-                # separate dislay
-                elif display_mode_value == 'separate':
-                    num =  len(selected_dropdown_value)
-                    figure = tools.make_subplots(rows=num, cols=1)
-    
-                    for index, (tra, chan) in enumerate(zip(trace, selected_dropdown_value)):     
-                        figure.append_trace(tra, index+1, 1)
-                        figure['layout']['xaxis{}'.format(index+1)].update(title='The channel of {0}'.format(chan)) 
-
-                    figure['layout'].update(height=600*num) 
-                
                 # keep the zoom 
                 if figure is not None:
-                    
                     # have attribute 'relayout, the attribute 'range' exists only execute the zoom 
                     if relayout is not None:
-                        relayout_maxrange = None
-                        # x range maximum
-                        if 'xaxis.range[1]' in relayout or 'xaxis.range' in relayout:
-                             
-                            # get the previous range
-                            try:
-                                maxrange = datetime.strptime(relayout['xaxis.range[1]'],"%Y-%m-%d %H:%M:%S")
-                                relayout_maxrange = maxrange.timestamp()
-                            except:
-                                try:
-                                    relayout_maxrange = datetime.strptime(relayout['xaxis.range[1]'],"%Y-%m-%d %H:%M:%S.%f").timestamp()
-                                except:
-                                    try:
-                                        relayout_maxrange = datetime.strptime(relayout['xaxis.range'][1],"%Y-%m-%d %H:%M:%S").timestamp()
-                                    except:
-                                        relayout_maxrange = datetime.strptime(relayout['xaxis.range'][1],"%Y-%m-%d %H:%M:%S.%f").timestamp()
                         
-                        # the range shown in the figure 
+                        relayout_maxrange = None
+                        # get the relayout x-axis maximum
+                        if 'xaxis.range[1]' in relayout or 'xaxis.range' in relayout:
+                            try:
+                                relayout_maxrange = np.datetime64(relayout['xaxis.range[1]'])
+                            except:
+                                relayout_maxrange =  np.datetime64(relayout['xaxis.range'][1])
+                        
                         # now_maxrange is the last time or the actual range maximum 
-                        #print(figure['layout'])
                         if 'xaxis' in figure['layout']:
-
                             if 'range' in figure['layout']['xaxis']:
-
                                 if figure['layout']['xaxis']['range'] is not None:
-                                    try:
-                                        now_maxrange =  datetime.strptime(figure['layout']['xaxis']['range'][1],"%Y-%m-%d %H:%M:%S")
-                                    except:
-                                        now_maxrange =  datetime.strptime(figure['layout']['xaxis']['range'][1],"%Y-%m-%d %H:%M:%S%f")
+                                        now_maxrange =  np.datetime64(figure['layout']['xaxis']['range'][1])
                                 else:
                                     now_maxrange = maxtime
-                            elif maxtime:
-                                    now_maxrange = maxtime
+                            else:
+                                now_maxrange = maxtime
 
                         elif 'xaxis1' in figure['layout']:
                             temp_now_list = []
+                            
                             for index, tra in enumerate(trace):     
-                                
                                 if 'range' in figure['layout']['xaxis{}'.format(index+1)]:
-                                    try:
-                                         temp_now =  datetime.strptime(figure['layout']['xaxis{}'.format(index+1)]['range'][1],"%Y-%m-%d %H:%M:%S")
-                                    except:
-                                        temp_now =  datetime.strptime(figure['layout']['xaxis{}'.format(index+1)]['range'][1],"%Y-%m-%d %H:%M:%S%f")
+                                    temp_now =  np.datetime64(figure['layout']['xaxis{}'.format(index+1)]['range'][1])
                                     temp_now_list.append(temp_now)
                                     
                             now_maxrange = max(temp_now_list)
@@ -1602,31 +1602,22 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
                             now_maxrange = maxtime
                         
                         # the threshold of showing the updated data
-                        threshold = (maxtime.timestamp()-100)
-                        
-                        # print('maxtime', maxtime)
-                        # print(maxtime.timestamp())
-                        # print('relayout_maxrange', relayout_maxrange)
-                        # print('threshold', threshold)
+                        threshold = (maxtime -  np.timedelta64(100, 's'))
                         
                         if relayout_maxrange:
-                         
+                            # 'xaxis.range[0]', ['xaxis.range'][0] mean different types of zoom (zoom on the figure, selection on the timeslider)
                             # when the reset of maximal range exceeds a threshold value, the range maximum is assigned as maxtime_updated
-                            # print(relayout_maxrange)
+                            # when the 'now_maxrange' always exceeds the last data, then update the 'now_maxrange' to keep a constant distance between the last data and the range maximum
                             if relayout_maxrange > threshold or now_maxrange > maxtime:
                                 
-                                # print(maxtime)
-                                maxtime_updated = (maxtime + timedelta(seconds=300)).strftime("%Y-%m-%d %H:%M:%S")
-                                # print(maxtime_updated)
-                                # print(relayout['xaxis.range[0]'])
+                                maxtime_updated = (maxtime +  np.timedelta64(300, 's'))
                                 if 'xaxis.range[1]' in relayout:
                                     the_range = [relayout['xaxis.range[0]'], maxtime_updated]
                                     figure['layout']['xaxis']['range'] = the_range
                                 elif 'xaxis.range' in relayout:
                                     the_range = [relayout['xaxis.range'][0], maxtime_updated]
                                     figure['layout']['xaxis']['range'] = the_range
-                                
-                                # print(the_range)
+
                             else:
                                 if 'xaxis.range[1]' in relayout:
                                     figure['layout']['xaxis']['range'] = [relayout['xaxis.range[0]'],
@@ -1634,53 +1625,179 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
                                 elif 'xaxis.range' in relayout:
                                     figure['layout']['xaxis']['range'] = [relayout['xaxis.range'][0],
                                                                          relayout['xaxis.range'][1]]
-                        
-                        
-                        # y range 
+                    
+                        # reset y-axis range
                         if 'yaxis.range[1]' in relayout and 'yaxis.range[0]' in relayout:
                                 figure['layout']['yaxis']['range'] = [relayout['yaxis.range[0]'],
                                                                       relayout['yaxis.range[1]']]
                         elif 'yaxis.range' in relayout:
                              figure['layout']['yaxis']['range'] = [relayout['yaxis.range'][0], 
                                                                       relayout['yaxis.range'][1]] 
-
-                    if do_autoscale:
+                    # autorange when no update
+                    if click>0:
                         figure['layout']['xaxis']['autorange'] = True
                 
-                return figure, dis
+                return figure, last_data
+            else: 
+                return no_update, no_update
+        else:
+            return no_update, no_update
+    elif before_data is not None: 
+        trace = []
+        last_data = {}
+        
+        date_log_list = list(before_data.keys())
+        if 'exp_before' in date_log_list:
+            date_log_list.remove('exp_before')
+        if 'exp_today' in date_log_list:
+            date_log_list.remove('exp_today')
+                
+        data_df = pd.DataFrame()
+        for date in date_list:
+            date_str = str(date)
             
-            else: no_update, no_update
+            if date_str in date_log_list:
+                temp_df = pd.DataFrame()
+                temp_df = pd.read_json(before_data[date_str], orient='split', convert_dates =True)
+                data_df = pd.concat([data_df, temp_df], axis=0) 
+
+        if selected_dropdown_value is not None and selected_dropdown_value:
+            # to keep same format for single channel or multiple channels
+            if not isinstance(selected_dropdown_value, (list,)):
+                selected_dropdown_value = [selected_dropdown_value]
+            
+            maxtime_list = []
+            mintime_list = []
+                
+            # append each traces
+            for channel in selected_dropdown_value:
+                channel_time = channel+'_time'
+
+                # drop all NaN
+                if channel in data_df:
+                    temp = pd.DataFrame()
+                    temp[channel] = data_df[channel]
+                    temp[channel_time] = data_df[channel_time]
+                    temp.dropna(inplace=True)
+
+                    maxtime_list.append(temp[channel_time].iloc[-1])
+                    mintime_list.append(temp[channel_time].iloc[0])
+
+                    trace.append(go.Scatter(x=temp[channel_time], y=temp[channel],mode='lines', opacity=0.7,name=channel, textposition='bottom center'))
+                    last_data[channel] = temp[channel].iloc[-1]
+            
+            # overlap display
+            if display_mode_value == 'overlap':
+                figure = {'data': trace, 'layout': layout_set1}
+                figure['layout'].update(uirevision= click)
+
+            # time slider 
+            elif display_mode_value == 'timeslider':
+                figure = {'data': trace, 'layout': layout_set2}
+                figure['layout'].update(uirevision=click)
+            
+            return figure, last_data
         else:
             return no_update, no_update
     else:
-        # to keep same format for single channel or multiple channels
-        if not isinstance(selected_dropdown_value, (list,)):
-            selected_dropdown_value = [selected_dropdown_value]
+        return no_update, no_update
+
+
+
+
+
+
+# Display the store button
+@app.callback([Output('subplot-graph-framework', 'style'),
+                Output('subplot-graph-button', 'children')],
+                [Input('subplot-graph-button', 'n_clicks'),
+                 Input('reset_config', 'n_clicks')],
+                [State('subplot-graph-framework', 'style'),
+                 State('selection-subplot', 'value'),
+                 State('selection_config', 'value')])
+def update_subplot(n, reset_click, current, channel, value):
+    is_mutiple_plots = False
+    if value and reset_click>0: 
+        with open(path_lab + r'\user.json', 'r') as json_file:
+            data = json.load(json_file)
         
-        if before_data is not None:
-            trace = []
-            dis = {}
-            
-            date_log_list = list(before_data.keys())
-            if 'exp_before' in date_log_list:
-                date_log_list.remove('exp_before')
-            if 'exp_today' in date_log_list:
-                date_log_list.remove('exp_today')
-                   
-            data_df = pd.DataFrame()
-            for date in date_list:
-                date_str = date.strftime(r'%Y-%m-%d')
+        if data[value]['figure'] and data[value]['figure'] == "Multiple plots":
+            is_mutiple_plots = True
+    
+    if n==1 and channel:
+        return {'display': 'block'}, 'Close Subplot' 
+    elif n>1 and channel:
+        if current['display'] =='none':
+            return {'display': 'block'}, 'Close Subplot'
+        elif current['display'] =='block':
+            return {'display': 'none'}, 'Show Subplot'
+        else:
+            return no_update, no_update
+    
+    elif is_mutiple_plots and channel:
+        return {'display': 'block'}, 'Close Subplot'
+    else:
+        return no_update, no_update
+
+@app.callback([Output('subplot-graph', 'figure'),
+               Output('max_min_data', 'data')],
+            [Input('before-log-storage', 'children'),
+            Input('date_range', 'end_date'),
+            Input('date_range', 'start_date'),
+            Input('today-log-storage', 'children'),
+            Input('selection-subplot', 'value'),
+            Input('display_mode','value'),
+            Input('autoscale','n_clicks'),
+            Input('subplot-graph-button', 'n_clicks'),],
+            [State('subplot-graph-framework', 'style'),
+             State('subplot-graph', 'figure'),
+             State('subplot-graph', 'relayoutData'),
+             State('dropdown-interval-control', 'value')])
+def update_sub_graph(before_data, end_date, start_date, today_data, selected_dropdown_value, display_mode_value, click, open_close_click, current, figure, relayout, updated_speed):
+    if current['display'] =='none' and (not updated_speed == 'no'):
+        return no_update, no_update
+    else:
+        # use 'datetime64' date type to reduce the calculation time
+        start_date = np.datetime64(start_date)
+        end_date =  np.datetime64(end_date)
+        date_list = np.arange(start_date, end_date + np.timedelta64(1, 'D') , dtype='datetime64[D]') 
+
+        if end_date == np.datetime64('today'):   
+            if today_data is not None:
+                trace = []
+                max_min_data = {}
+
+                # read data from json cache
+                if before_data is not None:
+                    before_data.update(today_data)
+                else:
+                    before_data = today_data
                 
-                if date_str in date_log_list:
-                    temp_df = pd.DataFrame()
-                    temp_df = pd.read_json(before_data[date_str], orient='split')
-                    data_df = pd.concat([data_df, temp_df], axis=0)
+                # The keys of 'before_data' contains the keywords 'exp_before' or 'exp_today' and corresponding years
+                date_log_list = list(before_data.keys())
+                if 'exp_before' in date_log_list:
+                    date_log_list.remove('exp_before')
+                if 'exp_today' in date_log_list:
+                    date_log_list.remove('exp_today')
+                
+                data_df = pd.DataFrame()
+                for date in date_list:
+                    date_str = str(date)
+                    
+                    if date_str in date_log_list:
+                        temp_df = pd.DataFrame()
+                        temp_df = pd.read_json(before_data[date_str], orient='split', convert_dates =True)
+                        data_df = pd.concat([data_df, temp_df], axis=0) 
 
-            if selected_dropdown_value is not None or not selected_dropdown_value:
-                for channel in selected_dropdown_value:
-                    channel_time = 'Time_'+ channel
-
-                    # if data_df[channel_time].iloc[0] == str:
+                # selected_dropdown_value is not None or not empty
+                if selected_dropdown_value is not None:
+                    
+                    maxtime_list = []
+                    mintime_list = []
+                    
+                    # append each traces
+                    channel = selected_dropdown_value
+                    channel_time = channel+'_time'
 
                     # drop all NaN
                     if channel in data_df:
@@ -1689,12 +1806,160 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
                         temp[channel_time] = data_df[channel_time]
                         temp.dropna(inplace=True)
 
-                        trace.append(
-                            go.Scatter(x=temp[channel_time], y=temp[channel], mode='lines', opacity=0.7, name=channel,
-                                    textposition='bottom center'))
+                        maxtime_list.append(temp[channel_time].iloc[-1])
+                        mintime_list.append(temp[channel_time].iloc[0])
+                        trace.append(go.Scatter(x=temp[channel_time], y=temp[channel],mode='lines', opacity=0.7,name=channel, textposition='bottom center'))
+                        max_min_data[channel] = {'min': temp[channel].min()}
+                        max_min_data[channel] = {'max': temp[channel].max()}
+                    
+                    # the time of last data
+                    maxtime = np.datetime64('now')
+                    if maxtime_list:
+                        maxtime = max(maxtime_list)
+                    if mintime_list:
+                        mintime = max(mintime_list)
 
-                        dis[channel] = temp[channel].iloc[-1]
+                    # overlap display
+                    if display_mode_value == 'overlap':
+                        figure = {'data': trace, 'layout': layout_set1}
+                    
+                    # time slider 
+                    elif display_mode_value == 'timeslider':
+                        figure = {'data': trace, 'layout': layout_set2}
+                    
+                    # keep the zoom 
+                    if figure is not None:
+                        # have attribute 'relayout, the attribute 'range' exists only execute the zoom 
+                        if relayout is not None:
+                            
+                            relayout_maxrange = None
+                            # get the relayout x-axis maximum
+                            if 'xaxis.range[1]' in relayout or 'xaxis.range' in relayout:
+                                try:
+                                    relayout_maxrange = np.datetime64(relayout['xaxis.range[1]'])
+                                except:
+                                    relayout_maxrange =  np.datetime64(relayout['xaxis.range'][1])
+                            
+                            # now_maxrange is the last time or the actual range maximum 
+                            if 'xaxis' in figure['layout']:
+                                if 'range' in figure['layout']['xaxis']:
+                                    if figure['layout']['xaxis']['range'] is not None:
+                                            now_maxrange =  np.datetime64(figure['layout']['xaxis']['range'][1])
+                                    else:
+                                        now_maxrange = maxtime
+                                else:
+                                    now_maxrange = maxtime
 
+                            elif 'xaxis1' in figure['layout']:
+                                temp_now_list = []
+                                
+                                for index, tra in enumerate(trace):     
+                                    if 'range' in figure['layout']['xaxis{}'.format(index+1)]:
+                                        temp_now =  np.datetime64(figure['layout']['xaxis{}'.format(index+1)]['range'][1])
+                                        temp_now_list.append(temp_now)
+                                        
+                                now_maxrange = max(temp_now_list)
+                            elif maxtime:
+                                now_maxrange = maxtime
+                            
+                            # the threshold of showing the updated data
+                            threshold = (maxtime -  np.timedelta64(100, 's'))
+                            
+                            if relayout_maxrange:
+                                # 'xaxis.range[0]', ['xaxis.range'][0] mean different types of zoom (zoom on the figure, selection on the timeslider)
+                                # when the reset of maximal range exceeds a threshold value, the range maximum is assigned as maxtime_updated
+                                # when the 'now_maxrange' always exceeds the last data, then update the 'now_maxrange' to keep a constant distance between the last data and the range maximum
+                                the_range = []
+                                if relayout_maxrange > threshold or now_maxrange > maxtime:
+                                    
+                                    maxtime_updated = (maxtime +  np.timedelta64(300, 's'))
+                                    if 'xaxis.range[1]' in relayout:
+                                        the_range = [relayout['xaxis.range[0]'], maxtime_updated]
+                                    elif 'xaxis.range' in relayout:
+                                        the_range = [relayout['xaxis.range'][0], maxtime_updated]
+                                
+                                elif 'xaxis.range[1]' in relayout:
+                                    the_range = [relayout['xaxis.range[0]'], relayout['xaxis.range[1]']]
+                                    
+                                elif 'xaxis.range' in relayout:
+                                    the_range = [relayout['xaxis.range'][0], relayout['xaxis.range'][1]]
+
+                                if the_range: 
+                                    figure['layout']['xaxis']['range'] = the_range
+                                    
+                                    condition = (data_df[channel_time] >= the_range[0]) & (data_df[channel_time]<= the_range[0])
+                                    temp_data = data_df[channel][condition]
+                                    max_min_data[channel] = {'min': temp_data.max()}
+                                    max_min_data[channel] = {'max': temp_data.max()}
+                        
+                            # reset y-axis range
+                            if 'yaxis.range[1]' in relayout and 'yaxis.range[0]' in relayout:
+                                y_range = [relayout['yaxis.range[0]'],relayout['yaxis.range[1]']]
+                                
+                                figure['layout']['yaxis']['range'] = y_range
+                                if y_range[0] >  max_min_data[channel]['min']:
+                                    max_min_data[channel]['min'] =  y_range[0] 
+                                if y_range[1] <  max_min_data[channel]['max']:
+                                    max_min_data[channel]['max'] =  y_range[1] 
+                            
+                            elif 'yaxis.range' in relayout:
+                                y_range = [relayout['yaxis.range'][0], relayout['yaxis.range'][1]] 
+
+                                figure['layout']['yaxis']['range'] = y_range
+                                if y_range[0] >  max_min_data[channel]['min']:
+                                    max_min_data[channel]['min'] =  y_range[0] 
+                                if y_range[1] <  max_min_data[channel]['max']:
+                                    max_min_data[channel]['max'] =  y_range[1] 
+                        # autorange when no update
+                        if click>0:
+                            figure['layout']['xaxis']['autorange'] = True
+                    
+                    return figure, max_min_data
+                else: 
+                    return no_update, no_update
+            else:
+                return no_update, no_update
+        elif before_data is not None: 
+            trace = []
+            max_min_data = {}
+            
+            date_log_list = list(before_data.keys())
+            if 'exp_before' in date_log_list:
+                date_log_list.remove('exp_before')
+            if 'exp_today' in date_log_list:
+                date_log_list.remove('exp_today')
+                    
+            data_df = pd.DataFrame()
+            for date in date_list:
+                date_str = str(date)
+                
+                if date_str in date_log_list:
+                    temp_df = pd.DataFrame()
+                    temp_df = pd.read_json(before_data[date_str], orient='split', convert_dates =True)
+                    data_df = pd.concat([data_df, temp_df], axis=0) 
+
+            if selected_dropdown_value is not None and selected_dropdown_value:
+                maxtime_list = []
+                mintime_list = []
+                    
+                # append each traces
+                channel = selected_dropdown_value
+                channel_time = channel+'_time'
+
+                # drop all NaN
+                if channel in data_df:
+                    temp = pd.DataFrame()
+                    temp[channel] = data_df[channel]
+                    temp[channel_time] = data_df[channel_time]
+                    temp.dropna(inplace=True)
+
+                    maxtime_list.append(temp[channel_time].iloc[-1])
+                    mintime_list.append(temp[channel_time].iloc[0])
+
+                    trace.append(go.Scatter(x=temp[channel_time], y=temp[channel],mode='lines', opacity=0.7,name=channel, textposition='bottom center'))
+                    
+                    max_min_data[channel] = {'min': temp[channel].min()}
+                    max_min_data[channel] = {'max': temp[channel].max()}
                 
                 # overlap display
                 if display_mode_value == 'overlap':
@@ -1706,24 +1971,42 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
                     figure = {'data': trace, 'layout': layout_set2}
                     figure['layout'].update(uirevision=click)
                 
-                # separate dislay
-                elif display_mode_value == 'separate':
-                    num =  len(selected_dropdown_value)
-                    figure = tools.make_subplots(rows=num, cols=1)
-    
-                    for index, (tra, chan) in enumerate(zip(trace, selected_dropdown_value)):     
-                        figure.append_trace(tra, index+1, 1)
-                        figure['layout']['xaxis{}'.format(index+1)].update(title='The channel of {0}'.format(chan)) 
+                x_range = []
+                y_range = []
+                # maximum and minimum in x-axis relayout
+                if 'xaxis.range[1]' in relayout and 'xaxis.range[0]' in relayout:
+                    x_range = [relayout['xaxis.range[0]'],relayout['xaxis.range[1]']]
+                    
+                elif 'xaxis.range' in relayout:
+                    x_range = [relayout['xaxis.range'][0], relayout['xaxis.range'][1]] 
 
-                    figure['layout'].update(height=500*num)
-                    figure['layout'].update(uirevision= click)
+                if x_range:
+                    condition = (data_df[channel_time] >= x_range[0]) & (data_df[channel_time]<= x_range[0])
+                    temp_data = data_df[channel][condition]
+                    max_min_data[channel] = {'min': temp_data.max()}
+                    max_min_data[channel] = {'max': temp_data.max()}
+                        
+                # maximum and minimum in y-axis relayout
+                if 'yaxis.range[1]' in relayout and 'yaxis.range[0]' in relayout:
+                    y_range = [relayout['yaxis.range[0]'],relayout['yaxis.range[1]']]
 
-                return figure, no_update
-            else: 
+                elif 'yaxis.range' in relayout:
+                    y_range = [relayout['yaxis.range'][0], relayout['yaxis.range'][1]] 
+
+                if y_range:  
+                    if y_range[0] >  max_min_data[channel]['min']:
+                        max_min_data[channel]['min'] =  y_range[0] 
+                    if y_range[1] <  max_min_data[channel]['max']:
+                        max_min_data[channel]['max'] =  y_range[1] 
+                
+                return figure, max_min_data
+            else:
                 return no_update, no_update
         else:
             return no_update, no_update
-        
+
+
+
 # Main
 if __name__ == '__main__':
     if len(sys.argv)>=2:
@@ -1733,5 +2016,268 @@ if __name__ == '__main__':
     print(path_lab)
     app.server.run(debug=False, threaded=True)
 
-# In Jupyter, debug = False 
 
+# # separate dislay
+# elif display_mode_value == 'separate':
+#     num =  len(selected_dropdown_value)
+#     figure = tools.make_subplots(rows=num, cols=1)
+
+#     for index, (tra, chan) in enumerate(zip(trace, selected_dropdown_value)):     
+#         figure.append_trace(tra, index+1, 1)
+#         figure['layout']['xaxis{}'.format(index+1)].update(title='The channel of {0}'.format(chan)) 
+
+#     figure['layout'].update(height=600*num) 
+
+
+
+
+# @app.callback([Output('temperature-graph', 'figure'),
+#                Output('live_data', 'data')],
+#             [Input('before-log-storage', 'children'),
+#             Input('date_range', 'end_date'),
+#             Input('date_range', 'start_date'),
+#             Input('today-log-storage', 'children'),
+#             Input('channels_dropdown', 'value'),
+#             Input('display_mode','value'),
+#             Input('autoscale','n_clicks')],
+#             [State('temperature-graph', 'figure'),
+#              State('temperature-graph', 'relayoutData')])
+# def update_graph(before_data, end_date, start_date, today_data, selected_dropdown_value, display_mode_value, click, figure, relayout):
+#     start_date = datetime.strptime(start_date, r'%Y-%m-%d')
+#     end_date = datetime.strptime(end_date, r'%Y-%m-%d')
+#     date_list = datelist(start_date, end_date)
+  
+#     if end_date.date() == datetime.today().date():   
+#         if today_data is not None:
+#             trace = []
+#             dis = {}
+
+#             # read data from json cache
+#             if before_data is not None:
+#                 before_data.update(today_data)
+#             else:
+#                 before_data = today_data
+            
+#             # The keys of 'before_data' contains the keywords 'exp_before' or 'exp_today' and corresponding years
+#             date_log_list = list(before_data.keys())
+#             if 'exp_before' in date_log_list:
+#                 date_log_list.remove('exp_before')
+#             if 'exp_today' in date_log_list:
+#                 date_log_list.remove('exp_today')
+            
+#             data_df = pd.DataFrame()
+#             for date in date_list:
+#                 date_str = date.strftime(r'%Y-%m-%d')
+                
+#                 if date_str in date_log_list:
+#                     temp_df = pd.DataFrame()
+#                     temp_df = pd.read_json(before_data[date_str], orient='split', convert_dates =True)
+#                     data_df = pd.concat([data_df, temp_df], axis=0) 
+
+#             # selected_dropdown_value is not None or not empty
+#             if selected_dropdown_value is not None and selected_dropdown_value:
+#                 # to keep same format for single channel or multiple channels
+#                 if not isinstance(selected_dropdown_value, (list,)):
+#                     selected_dropdown_value = [selected_dropdown_value]
+#                 maxtime_list = []
+#                 mintime_list = []
+
+#                 for channel in selected_dropdown_value:
+#                     channel_time = channel+'_time'
+
+#                     # drop all NaN
+#                     if channel in data_df:
+#                         temp = pd.DataFrame()
+#                         temp[channel] = data_df[channel]
+#                         temp[channel_time] = data_df[channel_time]
+#                         temp.dropna(inplace=True)
+
+#                         maxtime_list.append(temp[channel_time].iloc[-1])
+#                         mintime_list.append(temp[channel_time].iloc[0])
+
+#                         trace.append(go.Scatter(x=temp[channel_time], y=temp[channel],mode='lines', opacity=0.7,name=channel, textposition='bottom center'))
+#                         dis[channel] = temp[channel].iloc[-1]
+                 
+#                 # the time of last data
+#                 # 'pd.to_datetime' converts the time in UTC, so here we use 'datetime.strptime' to keep same format 
+#                 maxtime =datetime.today()
+#                 if maxtime_list:
+#                     max_list =[]
+#                     for time in maxtime_list:
+#                         max_list.append(datetime.strptime(time, '%Y-%m-%d %H:%M:%S'))
+#                     maxtime = max(max_list)
+                
+#                 if mintime_list:
+#                     min_list =[]
+#                     for time in mintime_list:
+#                         min_list.append(datetime.strptime(time, '%Y-%m-%d %H:%M:%S'))
+#                     mintime = max(min_list)
+
+#                 # overlap display
+#                 if display_mode_value == 'overlap':
+#                     figure = {'data': trace, 'layout': layout_set1}
+                
+#                 # time slider 
+#                 elif display_mode_value == 'timeslider':
+#                     figure = {'data': trace, 'layout': layout_set2}
+                
+                
+#                 # keep the zoom 
+#                 if figure is not None:
+                    
+#                     # have attribute 'relayout, the attribute 'range' exists only execute the zoom 
+#                     if relayout is not None:
+#                         relayout_maxrange = None
+#                         # x range maximum
+#                         if 'xaxis.range[1]' in relayout or 'xaxis.range' in relayout:
+                             
+#                             # get the previous range
+#                             try:
+#                                 maxrange = datetime.strptime(relayout['xaxis.range[1]'],"%Y-%m-%d %H:%M:%S")
+#                                 relayout_maxrange = maxrange.timestamp()
+#                             except:
+#                                 try:
+#                                     relayout_maxrange = datetime.strptime(relayout['xaxis.range[1]'],"%Y-%m-%d %H:%M:%S.%f").timestamp()
+#                                 except:
+#                                     try:
+#                                         relayout_maxrange = datetime.strptime(relayout['xaxis.range'][1],"%Y-%m-%d %H:%M:%S").timestamp()
+#                                     except:
+#                                         relayout_maxrange = datetime.strptime(relayout['xaxis.range'][1],"%Y-%m-%d %H:%M:%S.%f").timestamp()
+                        
+#                         # the range shown in the figure 
+#                         # now_maxrange is the last time or the actual range maximum 
+#                         #print(figure['layout'])
+#                         if 'xaxis' in figure['layout']:
+
+#                             if 'range' in figure['layout']['xaxis']:
+
+#                                 if figure['layout']['xaxis']['range'] is not None:
+#                                     try:
+#                                         now_maxrange =  datetime.strptime(figure['layout']['xaxis']['range'][1],"%Y-%m-%d %H:%M:%S")
+#                                     except:
+#                                         now_maxrange =  datetime.strptime(figure['layout']['xaxis']['range'][1],"%Y-%m-%d %H:%M:%S%f")
+#                                 else:
+#                                     now_maxrange = maxtime
+#                             elif maxtime:
+#                                     now_maxrange = maxtime
+
+#                         elif 'xaxis1' in figure['layout']:
+#                             temp_now_list = []
+#                             for index, tra in enumerate(trace):     
+                                
+#                                 if 'range' in figure['layout']['xaxis{}'.format(index+1)]:
+#                                     try:
+#                                          temp_now =  datetime.strptime(figure['layout']['xaxis{}'.format(index+1)]['range'][1],"%Y-%m-%d %H:%M:%S")
+#                                     except:
+#                                         temp_now =  datetime.strptime(figure['layout']['xaxis{}'.format(index+1)]['range'][1],"%Y-%m-%d %H:%M:%S%f")
+#                                     temp_now_list.append(temp_now)
+                                    
+#                             now_maxrange = max(temp_now_list)
+#                         elif maxtime:
+#                             now_maxrange = maxtime
+                        
+#                         # the threshold of showing the updated data
+#                         threshold = (maxtime.timestamp()-100)
+                        
+#                         if relayout_maxrange:
+                         
+#                             # when the reset of maximal range exceeds a threshold value, the range maximum is assigned as maxtime_updated
+#                             # print(relayout_maxrange)
+#                             if relayout_maxrange > threshold or now_maxrange > maxtime:
+                                
+#                                 # print(maxtime)
+#                                 maxtime_updated = (maxtime + timedelta(seconds=300)).strftime("%Y-%m-%d %H:%M:%S")
+#                                 # print(maxtime_updated)
+#                                 # print(relayout['xaxis.range[0]'])
+#                                 if 'xaxis.range[1]' in relayout:
+#                                     the_range = [relayout['xaxis.range[0]'], maxtime_updated]
+#                                     figure['layout']['xaxis']['range'] = the_range
+#                                 elif 'xaxis.range' in relayout:
+#                                     the_range = [relayout['xaxis.range'][0], maxtime_updated]
+#                                     figure['layout']['xaxis']['range'] = the_range
+                                
+#                                 # print(the_range)
+#                             else:
+#                                 if 'xaxis.range[1]' in relayout:
+#                                     figure['layout']['xaxis']['range'] = [relayout['xaxis.range[0]'],
+#                                                                           relayout['xaxis.range[1]']]
+#                                 elif 'xaxis.range' in relayout:
+#                                     figure['layout']['xaxis']['range'] = [relayout['xaxis.range'][0],
+#                                                                          relayout['xaxis.range'][1]]
+                        
+                        
+#                         # y range 
+#                         if 'yaxis.range[1]' in relayout and 'yaxis.range[0]' in relayout:
+#                                 figure['layout']['yaxis']['range'] = [relayout['yaxis.range[0]'],
+#                                                                       relayout['yaxis.range[1]']]
+#                         elif 'yaxis.range' in relayout:
+#                              figure['layout']['yaxis']['range'] = [relayout['yaxis.range'][0], 
+#                                                                       relayout['yaxis.range'][1]] 
+
+#                     if click>0:
+#                         figure['layout']['xaxis']['autorange'] = True
+                
+#                 return figure, dis
+#             else: 
+#                 return no_update, no_update
+#         else:
+#             return no_update, no_update
+#     elif before_data is not None:
+            
+#         trace = []
+#         dis = {}
+        
+#         date_log_list = list(before_data.keys())
+#         if 'exp_before' in date_log_list:
+#             date_log_list.remove('exp_before')
+#         if 'exp_today' in date_log_list:
+#             date_log_list.remove('exp_today')
+                
+#         data_df = pd.DataFrame()
+#         for date in date_list:
+#             date_str = date.strftime(r'%Y-%m-%d')
+            
+#             if date_str in date_log_list:
+#                 temp_df = pd.DataFrame()
+#                 temp_df = pd.read_json(before_data[date_str], orient='split')
+#                 data_df = pd.concat([data_df, temp_df], axis=0)
+
+#         if selected_dropdown_value is not None and selected_dropdown_value:
+#             # to keep same format for single channel or multiple channels
+#             if not isinstance(selected_dropdown_value, (list,)):
+#                 selected_dropdown_value = [selected_dropdown_value]
+            
+#             for channel in selected_dropdown_value:
+#                 channel_time = channel +'_time'
+
+#                 # if data_df[channel_time].iloc[0] == str:
+
+#                 # drop all NaN
+#                 if channel in data_df:
+#                     temp = pd.DataFrame()
+#                     temp[channel] = data_df[channel]
+#                     temp[channel_time] = data_df[channel_time]
+#                     temp.dropna(inplace=True)
+
+#                     trace.append(
+#                         go.Scatter(x=temp[channel_time], y=temp[channel], mode='lines', opacity=0.7, name=channel,
+#                                 textposition='bottom center'))
+
+#                     dis[channel] = temp[channel].iloc[-1]
+
+            
+#             # overlap display
+#             if display_mode_value == 'overlap':
+#                 figure = {'data': trace, 'layout': layout_set1}
+#                 figure['layout'].update(uirevision= click)
+
+#             # time slider 
+#             elif display_mode_value == 'timeslider':
+#                 figure = {'data': trace, 'layout': layout_set2}
+#                 figure['layout'].update(uirevision=click)
+            
+#             return figure, no_update
+#         else:
+#             return no_update, no_update
+#     else:
+#         return no_update, no_update
