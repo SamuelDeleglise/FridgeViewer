@@ -644,13 +644,13 @@ page1 = html.Div([
 
             html.Div([
                 dcc.Graph(id='temperature-graph')
-            ], className="pretty_container",
+            ], className="pretty_container row",
                style={'width': '100%', 'margin-bottom': '15px' },
             ),
 
             html.Div([
                  dcc.Graph(id='subplot-graph')
-            ], className="pretty_container",
+            ], className="pretty_container row",
                id='subplot-graph-framework',
               style={'width': '100%','margin-bottom': '15px', 'display': 'none'}
             ),
@@ -664,7 +664,7 @@ page1 = html.Div([
                             value='',
                             multi = False,
                         )
-                    ],style={'width': '20%','float': 'left', 'margin-right': '15px'}
+                    ],style={'width': '20%','float': 'left', 'margin-right': '15px','display': 'block'}
                     ),
                     
                     html.Div([
@@ -674,7 +674,7 @@ page1 = html.Div([
             ),
 
         
-        ],id='graph_framework', className ='eight columns',style={'display': 'block'}),
+        ],id='graph_framework', className ='eight columns'),
 
         html.Div([
             html.Div([
@@ -1280,11 +1280,12 @@ def data_configuration(title, exp, year, data):
         path = path_lab + '\\' + exp + '\\data' + '\\' + year
         
         if 'experiment' in data.keys() and  data['experiment'] == exp:
+            
+            # delete {'expriment'}
             data.pop('experiment', None)
             # the inital setting
             dic = {}
-            print('222222222222222222222222222222222222')
-            print(data)
+
             for key in data.keys():
                 dic[key]={'unit':'', 'min':data[key], 'max':data[key]}
 
@@ -1442,8 +1443,7 @@ def get_before_log(start_date, end_date, data_channel, exp, year,  before, num_b
                   [State('today-log-storage', 'children')])
 def get_today_log(speed_value, n_intervals, exp, channels, start_date, end_date, today):
     if exp and channels and start_date and end_date:
-        print('jjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj')
-        print(channels)
+        
         if channels['experiment'] == exp:
             # get the path from the selection of experiment
             path = path_lab +'\\' + exp +'\\data'
@@ -1756,17 +1756,17 @@ def update_subplot(n, reset_click, current, channel, value):
             is_mutiple_plots = True
     
     if n==1 and channel:
-        return {'display': 'inline'}, 'Close Subplot' 
+        return {'display': 'inline-block'}, 'Close Subplot' 
     elif n>1 and channel:
         if current['display'] =='none':
-            return {'display': 'inline'}, 'Close Subplot'
-        elif current['display'] =='inline':
+            return {'display': 'inline-block'}, 'Close Subplot'
+        elif current['display'] =='inline-block':
             return {'display': 'none'}, 'Show Subplot'
         else:
             return no_update, no_update
     
     elif is_mutiple_plots and channel:
-        return {'display': 'inline'}, 'Close Subplot'
+        return {'display': 'inline-block'}, 'Close Subplot'
     else:
         return no_update, no_update
 
