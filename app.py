@@ -97,6 +97,16 @@ layout_set2 = {'colorway': color_list,
 #
 #
 ####################################################################################
+def str_to_datetime(a):
+    b = None
+    try:
+        b = datetime.strptime(a,"%Y-%m-%d %H:%M:%S")
+    except:
+        try:
+            b = datetime.strptime(a,"%Y-%m-%d %H:%M:%S.%f")
+        except:
+            pass
+    return b
 
 def update_jsonfile(path, key, value, valuetype=str):
     # if not exist, create an empty json file 
@@ -111,7 +121,7 @@ def update_jsonfile(path, key, value, valuetype=str):
             # update data
         except:
             print(path)
-
+    
         if key in data.keys():
             if valuetype is str:
                 if value not in data[key]:
@@ -120,8 +130,10 @@ def update_jsonfile(path, key, value, valuetype=str):
                 data[key].update(value)
             elif valuetype is list:
                 for ele in value:
+                    print(ele)
                     if ele not in data[key]:
-                        data[key].extend(ele)
+                        print(data[key])
+                        data[key].append(ele)
         else:
             if valuetype is dict:
                 data.update({key: value})
@@ -156,9 +168,11 @@ def write_channels_config(path):
                 path_chan = all_file_paths(path + '\\'+ single_date_str, '.chan')
                 chan = get_channels(path_chan)
                 channels_update.update(set(chan))
+
             except:
                 print('No chan files')
             
+
             update_jsonfile(path + r'\channels.json', single_date_str, list(channels_update), valuetype=list)
             
     return None
@@ -417,21 +431,21 @@ def modal():
 # the row element of data display
 def build_value_setter_line(icolor, channel, num, unit, vmin, vmax, precisioninput=True):
     if precisioninput ==True: 
-        element_num = html.H6("{0:.5f}".format(num),id='value_{}'.format(channel),)
+        element_num = html.H6("{0:.5f}".format(num),id='value_{}'.format(channel),style={'width':'50%','float':'left'})
     else:
-        element_num = html.H6(num,id='value_{}'.format(channel),)
+        element_num = html.H6(num,id='value_{}'.format(channel),style={'width':'50%','float':'left'})
     
     return html.Div(
         id='framework_{}'.format(channel),
         children=[
             element_num,
-            html.P(unit, id='unit_{}'.format(channel)),
+            html.P(unit, id='unit_{}'.format(channel),style={'width':'40%','float':'right'}),
 
             daq.Indicator(id='indicator_{}'.format(channel), value=True, color=icolor,style={'width':'15%','float':'left' } ),   
             html.P(channel,style={'font-weight': 'bold','width':'80%','float':'left'}),
         ],
         className='mini_container',
-        style={'width':'20%', 'float':'left'}
+        style={'width':'19%', 'float':'left'}
     )
 
 # a row of elements
@@ -457,6 +471,38 @@ def live_data_div(dic, data):
     div = html.Div(id = 'data-content', 
                  children = content,)
     return div
+
+# the row element of data display
+def build_line(name, value, precisioninput=True):
+    if precisioninput ==True: 
+        element_num = html.H6("{0:.5f}".format(value))
+    else:
+        element_num = html.H6(value)
+    
+    return html.Div(
+        id='max_min_framework_{}'.format(name),
+        children=[
+            element_num,
+            html.P('{} value'.format(name)),
+        ],
+        className='mini_container',
+        style={'width':'19%', 'float':'left'}
+    )
+
+def max_min_div(channel, data):
+    vmax = data[channel]['max']
+    vmin = data[channel]['min']
+    content = [html.Div(children = build_line('Max', vmax,)), html.Div(children = build_line('Max', vmin,))]
+    div = html.Div(id = 'max-min-content', children = content)
+    return div
+
+
+
+
+
+
+
+
 
 def get_data_configuratin(path, dic) :
     if os.path.isfile(path + r'\channels_threshold.json'): 
@@ -644,13 +690,15 @@ page1 = html.Div([
 
             html.Div([
                 dcc.Graph(id='temperature-graph')
-            ], className="pretty_container row",
-               style={'width': '100%', 'margin-bottom': '15px' },
+            ], className="pretty_container",
+               style={'width': '100%', 'margin-bottom': '15px'},
             ),
+            
+            html.Div(id="max-min-display",className="row",),
 
             html.Div([
-                 dcc.Graph(id='subplot-graph')
-            ], className="pretty_container row",
+                dcc.Graph(id='subplot-graph')
+            ], className="pretty_container",
                id='subplot-graph-framework',
               style={'width': '100%','margin-bottom': '15px', 'display': 'none'}
             ),
@@ -674,7 +722,7 @@ page1 = html.Div([
             ),
 
         
-        ],id='graph_framework', className ='eight columns'),
+        ],id='graph_framework', className ='eight columns',style={'display': 'block'}),
 
         html.Div([
             html.Div([
@@ -1519,21 +1567,19 @@ def update_num_display_and_time(num_before, num_today, n_intervals):
             [State('temperature-graph', 'figure'),
              State('temperature-graph', 'relayoutData')])
 def update_graph(before_data, end_date, start_date, today_data, selected_dropdown_value, display_mode_value, click, figure, relayout):
-    # use 'datetime64' date type to reduce the calculation time
-    start_date = np.datetime64(start_date)
-    end_date =  np.datetime64(end_date)
-    date_list = np.arange(start_date, end_date + np.timedelta64(1, 'D') , dtype='datetime64[D]') 
+    start_date = datetime.strptime(start_date, r'%Y-%m-%d').date()
+    end_date = datetime.strptime(end_date, r'%Y-%m-%d').date()
+    date_list =  [start_date + timedelta(days=x) for x in range((end_date-start_date).days + 1)]
 
-    if end_date == np.datetime64('today'):   
-        if today_data is not None:
+    if end_date == datetime.today().date():   
+        if today_data:
             trace = []
             last_data = {}
             if today_data and 'exp_today' in today_data.keys():
-                print()
                 last_data.update({'experiment': today_data['exp_today']})
             
             # read data from json cache
-            if before_data is not None:
+            if before_data:
                 before_data.update(today_data)
             else:
                 before_data = today_data
@@ -1547,21 +1593,22 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
             
             data_df = pd.DataFrame()
             for date in date_list:
-                date_str = str(date)
+                date_str = date.strftime(r'%Y-%m-%d')
                 
                 if date_str in date_log_list:
                     temp_df = pd.DataFrame()
                     temp_df = pd.read_json(before_data[date_str], orient='split', convert_dates =True)
                     data_df = pd.concat([data_df, temp_df], axis=0) 
+            
 
             # selected_dropdown_value is not None or not empty
-            if selected_dropdown_value is not None and selected_dropdown_value:
+            if selected_dropdown_value:
                 # to keep same format for single channel or multiple channels
                 if not isinstance(selected_dropdown_value, (list,)):
                     selected_dropdown_value = [selected_dropdown_value]
                 
-                maxtime_list = []
-                mintime_list = []
+                maxtime_list = pd.Series()
+                mintime_list = pd.Series()
                 
                 # append each traces
                 for channel in selected_dropdown_value:
@@ -1574,18 +1621,20 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
                         temp[channel_time] = data_df[channel_time]
                         temp.dropna(inplace=True)
 
-                        maxtime_list.append(temp[channel_time].iloc[-1])
-                        mintime_list.append(temp[channel_time].iloc[0])
+                        maxtime_list.append(pd.Series(temp[channel_time].iloc[-1]))
+                        mintime_list.append(pd.Series(temp[channel_time].iloc[0]))
+
 
                         trace.append(go.Scatter(x=temp[channel_time], y=temp[channel],mode='lines', opacity=0.7,name=channel, textposition='bottom center'))
                         last_data[channel] = temp[channel].iloc[-1]
                  
                 # the time of last data
-                maxtime = np.datetime64('now')
-                if maxtime_list:
-                    maxtime = max(maxtime_list)
-                if mintime_list:
-                    mintime = max(mintime_list)
+
+                maxtime = datetime.today()
+                if not maxtime_list.empty:
+                    maxtime = maxtime_list.max()
+                if not mintime_list.empty:
+                    mintime = mintime_list.max()
 
                 # overlap display
                 if display_mode_value == 'overlap':
@@ -1596,23 +1645,22 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
                     figure = {'data': trace, 'layout': layout_set2}
                 
                 # keep the zoom 
-                if figure is not None:
+                if figure:
                     # have attribute 'relayout, the attribute 'range' exists only execute the zoom 
-                    if relayout is not None:
-                        
+                    if relayout:
                         relayout_maxrange = None
                         # get the relayout x-axis maximum
                         if 'xaxis.range[1]' in relayout or 'xaxis.range' in relayout:
                             try:
-                                relayout_maxrange = np.datetime64(relayout['xaxis.range[1]'])
+                                relayout_maxrange = str_to_datetime(relayout['xaxis.range[1]'])
                             except:
-                                relayout_maxrange =  np.datetime64(relayout['xaxis.range'][1])
+                                relayout_maxrange = str_to_datetime(relayout['xaxis.range'][1])
                         
                         # now_maxrange is the last time or the actual range maximum 
                         if 'xaxis' in figure['layout']:
                             if 'range' in figure['layout']['xaxis']:
-                                if figure['layout']['xaxis']['range'] is not None:
-                                        now_maxrange =  np.datetime64(figure['layout']['xaxis']['range'][1])
+                                if figure['layout']['xaxis']['range']:
+                                    now_maxrange =  str_to_datetime(figure['layout']['xaxis']['range'][1])
                                 else:
                                     now_maxrange = maxtime
                             else:
@@ -1623,7 +1671,7 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
                             
                             for index, tra in enumerate(trace):     
                                 if 'range' in figure['layout']['xaxis{}'.format(index+1)]:
-                                    temp_now =  np.datetime64(figure['layout']['xaxis{}'.format(index+1)]['range'][1])
+                                    temp_now =  str_to_datetime(figure['layout']['xaxis{}'.format(index+1)]['range'][1])
                                     temp_now_list.append(temp_now)
                                     
                             now_maxrange = max(temp_now_list)
@@ -1631,15 +1679,16 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
                             now_maxrange = maxtime
                         
                         # the threshold of showing the updated data
-                        threshold = (maxtime -  np.timedelta64(100, 's'))
+                        threshold = (maxtime -timedelta(seconds=100))
                         
                         if relayout_maxrange:
                             # 'xaxis.range[0]', ['xaxis.range'][0] mean different types of zoom (zoom on the figure, selection on the timeslider)
                             # when the reset of maximal range exceeds a threshold value, the range maximum is assigned as maxtime_updated
                             # when the 'now_maxrange' always exceeds the last data, then update the 'now_maxrange' to keep a constant distance between the last data and the range maximum
+                            
                             if relayout_maxrange > threshold or now_maxrange > maxtime:
                                 
-                                maxtime_updated = (maxtime +  np.timedelta64(300, 's'))
+                                maxtime_updated = (maxtime + timedelta(seconds=300))
                                 if 'xaxis.range[1]' in relayout:
                                     the_range = [relayout['xaxis.range[0]'], maxtime_updated]
                                     figure['layout']['xaxis']['range'] = the_range
@@ -1671,7 +1720,7 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
                 return no_update, no_update
         else:
             return no_update, no_update
-    elif before_data is not None: 
+    elif before_data: 
         trace = []
         last_data = {}
         if before_data and 'exp_before' in before_data.keys():
@@ -1685,8 +1734,8 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
                 
         data_df = pd.DataFrame()
         for date in date_list:
-            date_str = str(date)
-            
+            date_str = date.strftime(r'%Y-%m-%d')
+
             if date_str in date_log_list:
                 temp_df = pd.DataFrame()
                 temp_df = pd.read_json(before_data[date_str], orient='split', convert_dates =True)
@@ -1697,8 +1746,8 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
             if not isinstance(selected_dropdown_value, (list,)):
                 selected_dropdown_value = [selected_dropdown_value]
             
-            maxtime_list = []
-            mintime_list = []
+            maxtime_list = pd.Series()
+            mintime_list = pd.Series()
                 
             # append each traces
             for channel in selected_dropdown_value:
@@ -1711,10 +1760,11 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
                     temp[channel_time] = data_df[channel_time]
                     temp.dropna(inplace=True)
 
-                    maxtime_list.append(temp[channel_time].iloc[-1])
-                    mintime_list.append(temp[channel_time].iloc[0])
+                    maxtime_list.append(pd.Series(temp[channel_time].iloc[-1]))
+                    mintime_list.append(pd.Series(temp[channel_time].iloc[0]))
 
                     trace.append(go.Scatter(x=temp[channel_time], y=temp[channel],mode='lines', opacity=0.7,name=channel, textposition='bottom center'))
+                    
                     last_data[channel] = temp[channel].iloc[-1]
             
             # overlap display
@@ -1732,7 +1782,6 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
             return no_update, no_update
     else:
         return no_update, no_update
-
 
 
 
@@ -1756,22 +1805,22 @@ def update_subplot(n, reset_click, current, channel, value):
             is_mutiple_plots = True
     
     if n==1 and channel:
-        return {'display': 'inline-block'}, 'Close Subplot' 
+        return {'display': 'block'}, 'Close Subplot' 
     elif n>1 and channel:
         if current['display'] =='none':
-            return {'display': 'inline-block'}, 'Close Subplot'
-        elif current['display'] =='inline-block':
+            return {'display': 'block'}, 'Close Subplot'
+        elif current['display'] =='block':
             return {'display': 'none'}, 'Show Subplot'
         else:
             return no_update, no_update
     
     elif is_mutiple_plots and channel:
-        return {'display': 'inline-block'}, 'Close Subplot'
+        return {'display': 'block'}, 'Close Subplot'
     else:
         return no_update, no_update
 
 @app.callback([Output('subplot-graph', 'figure'),
-               Output('max_min_data', 'data')],
+               Output('max-min-display', 'children')],
             [Input('before-log-storage', 'children'),
             Input('date_range', 'end_date'),
             Input('date_range', 'start_date'),
@@ -1788,13 +1837,12 @@ def update_sub_graph(before_data, end_date, start_date, today_data, selected_dro
     if current['display'] =='none' and (not updated_speed == 'no'):
         return no_update, no_update
     else:
-        # use 'datetime64' date type to reduce the calculation time
-        start_date = np.datetime64(start_date)
-        end_date =  np.datetime64(end_date)
-        date_list = np.arange(start_date, end_date + np.timedelta64(1, 'D') , dtype='datetime64[D]') 
-
-        if end_date == np.datetime64('today'):   
-            if today_data is not None:
+        start_date = datetime.strptime(start_date, r'%Y-%m-%d').date()
+        end_date = datetime.strptime(end_date, r'%Y-%m-%d').date()
+        date_list =  [start_date + timedelta(days=x) for x in range((end_date-start_date).days + 1)]
+        
+        if end_date == datetime.today().date():   
+            if today_data:
                 trace = []
                 max_min_data = {}
 
@@ -1813,7 +1861,7 @@ def update_sub_graph(before_data, end_date, start_date, today_data, selected_dro
                 
                 data_df = pd.DataFrame()
                 for date in date_list:
-                    date_str = str(date)
+                    date_str = date.strftime(r'%Y-%m-%d')
                     
                     if date_str in date_log_list:
                         temp_df = pd.DataFrame()
@@ -1821,10 +1869,10 @@ def update_sub_graph(before_data, end_date, start_date, today_data, selected_dro
                         data_df = pd.concat([data_df, temp_df], axis=0) 
 
                 # selected_dropdown_value is not None or not empty
-                if selected_dropdown_value is not None:
+                if selected_dropdown_value:
                     
-                    maxtime_list = []
-                    mintime_list = []
+                    maxtime_list = pd.Series()
+                    mintime_list = pd.Series()
                     
                     # append each traces
                     channel = selected_dropdown_value
@@ -1837,18 +1885,18 @@ def update_sub_graph(before_data, end_date, start_date, today_data, selected_dro
                         temp[channel_time] = data_df[channel_time]
                         temp.dropna(inplace=True)
 
-                        maxtime_list.append(temp[channel_time].iloc[-1])
-                        mintime_list.append(temp[channel_time].iloc[0])
+                        maxtime_list.append(pd.Series(temp[channel_time].iloc[-1]))
+                        mintime_list.append(pd.Series(temp[channel_time].iloc[0]))
                         trace.append(go.Scatter(x=temp[channel_time], y=temp[channel],mode='lines', opacity=0.7,name=channel, textposition='bottom center'))
                         max_min_data[channel] = {'min': temp[channel].min()}
                         max_min_data[channel] = {'max': temp[channel].max()}
                     
                     # the time of last data
-                    maxtime = np.datetime64('now')
-                    if maxtime_list:
-                        maxtime = max(maxtime_list)
-                    if mintime_list:
-                        mintime = max(mintime_list)
+                    maxtime = datetime.today()
+                    if not maxtime_list.empty:
+                        maxtime = maxtime_list.max()
+                    if not mintime_list.empty:
+                        mintime = mintime_list.max()
 
                     # overlap display
                     if display_mode_value == 'overlap':
@@ -1859,23 +1907,22 @@ def update_sub_graph(before_data, end_date, start_date, today_data, selected_dro
                         figure = {'data': trace, 'layout': layout_set2}
                     
                     # keep the zoom 
-                    if figure is not None:
+                    if figure:
                         # have attribute 'relayout, the attribute 'range' exists only execute the zoom 
-                        if relayout is not None:
-                            
+                        if relayout:
                             relayout_maxrange = None
                             # get the relayout x-axis maximum
                             if 'xaxis.range[1]' in relayout or 'xaxis.range' in relayout:
                                 try:
-                                    relayout_maxrange = np.datetime64(relayout['xaxis.range[1]'])
+                                    relayout_maxrange = str_to_datetime(relayout['xaxis.range[1]'])
                                 except:
-                                    relayout_maxrange =  np.datetime64(relayout['xaxis.range'][1])
+                                    relayout_maxrange = str_to_datetime(relayout['xaxis.range'][1])
                             
                             # now_maxrange is the last time or the actual range maximum 
                             if 'xaxis' in figure['layout']:
                                 if 'range' in figure['layout']['xaxis']:
-                                    if figure['layout']['xaxis']['range'] is not None:
-                                            now_maxrange =  np.datetime64(figure['layout']['xaxis']['range'][1])
+                                    if figure['layout']['xaxis']['range']:
+                                        now_maxrange =  str_to_datetime(figure['layout']['xaxis']['range'][1])
                                     else:
                                         now_maxrange = maxtime
                                 else:
@@ -1886,7 +1933,7 @@ def update_sub_graph(before_data, end_date, start_date, today_data, selected_dro
                                 
                                 for index, tra in enumerate(trace):     
                                     if 'range' in figure['layout']['xaxis{}'.format(index+1)]:
-                                        temp_now =  np.datetime64(figure['layout']['xaxis{}'.format(index+1)]['range'][1])
+                                        temp_now =  str_to_datetime(figure['layout']['xaxis{}'.format(index+1)]['range'][1])
                                         temp_now_list.append(temp_now)
                                         
                                 now_maxrange = max(temp_now_list)
@@ -1894,16 +1941,16 @@ def update_sub_graph(before_data, end_date, start_date, today_data, selected_dro
                                 now_maxrange = maxtime
                             
                             # the threshold of showing the updated data
-                            threshold = (maxtime -  np.timedelta64(100, 's'))
+                            threshold = (maxtime - timedelta(seconds=100))
                             
-                            if relayout_maxrange:
+                            if relayout_maxrange and now_maxrange:
                                 # 'xaxis.range[0]', ['xaxis.range'][0] mean different types of zoom (zoom on the figure, selection on the timeslider)
                                 # when the reset of maximal range exceeds a threshold value, the range maximum is assigned as maxtime_updated
                                 # when the 'now_maxrange' always exceeds the last data, then update the 'now_maxrange' to keep a constant distance between the last data and the range maximum
                                 the_range = []
                                 if relayout_maxrange > threshold or now_maxrange > maxtime:
                                     
-                                    maxtime_updated = (maxtime +  np.timedelta64(300, 's'))
+                                    maxtime_updated = (maxtime +  timedelta(seconds=300))
                                     if 'xaxis.range[1]' in relayout:
                                         the_range = [relayout['xaxis.range[0]'], maxtime_updated]
                                     elif 'xaxis.range' in relayout:
@@ -1945,12 +1992,13 @@ def update_sub_graph(before_data, end_date, start_date, today_data, selected_dro
                         if click>0:
                             figure['layout']['xaxis']['autorange'] = True
                     
-                    return figure, max_min_data
+
+                    return figure,max_min_div(channel, max_min_data)
                 else: 
                     return no_update, no_update
             else:
                 return no_update, no_update
-        elif before_data is not None: 
+        elif before_data: 
             trace = []
             max_min_data = {}
             
@@ -1962,16 +2010,14 @@ def update_sub_graph(before_data, end_date, start_date, today_data, selected_dro
                     
             data_df = pd.DataFrame()
             for date in date_list:
-                date_str = str(date)
+                date_str = date.strftime(r'%Y-%m-%d')
                 
                 if date_str in date_log_list:
                     temp_df = pd.DataFrame()
                     temp_df = pd.read_json(before_data[date_str], orient='split', convert_dates =True)
                     data_df = pd.concat([data_df, temp_df], axis=0) 
 
-            if selected_dropdown_value is not None and selected_dropdown_value:
-                maxtime_list = []
-                mintime_list = []
+            if selected_dropdown_value:
                     
                 # append each traces
                 channel = selected_dropdown_value
@@ -1984,13 +2030,10 @@ def update_sub_graph(before_data, end_date, start_date, today_data, selected_dro
                     temp[channel_time] = data_df[channel_time]
                     temp.dropna(inplace=True)
 
-                    maxtime_list.append(temp[channel_time].iloc[-1])
-                    mintime_list.append(temp[channel_time].iloc[0])
-
                     trace.append(go.Scatter(x=temp[channel_time], y=temp[channel],mode='lines', opacity=0.7,name=channel, textposition='bottom center'))
                     
-                    max_min_data[channel] = {'min': temp[channel].min()}
-                    max_min_data[channel] = {'max': temp[channel].max()}
+                    max_min_data[channel].update({'min': temp[channel].min()})
+                    max_min_data[channel].update({'max': temp[channel].max()})
                 
                 # overlap display
                 if display_mode_value == 'overlap':
@@ -2014,8 +2057,8 @@ def update_sub_graph(before_data, end_date, start_date, today_data, selected_dro
                 if x_range:
                     condition = (data_df[channel_time] >= x_range[0]) & (data_df[channel_time]<= x_range[0])
                     temp_data = data_df[channel][condition]
-                    max_min_data[channel] = {'min': temp_data.max()}
-                    max_min_data[channel] = {'max': temp_data.max()}
+                    max_min_data[channel].update({'min': temp_data.max()})
+                    max_min_data[channel].update({'max': temp_data.max()})
                         
                 # maximum and minimum in y-axis relayout
                 if 'yaxis.range[1]' in relayout and 'yaxis.range[0]' in relayout:
@@ -2030,7 +2073,7 @@ def update_sub_graph(before_data, end_date, start_date, today_data, selected_dro
                     if y_range[1] <  max_min_data[channel]['max']:
                         max_min_data[channel]['max'] =  y_range[1] 
                 
-                return figure, max_min_data
+                return figure,max_min_div(channel, max_min_data)
             else:
                 return no_update, no_update
         else:
