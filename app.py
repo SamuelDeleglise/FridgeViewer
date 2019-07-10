@@ -130,9 +130,7 @@ def update_jsonfile(path, key, value, valuetype=str):
                 data[key].update(value)
             elif valuetype is list:
                 for ele in value:
-                    print(ele)
                     if ele not in data[key]:
-                        print(data[key])
                         data[key].append(ele)
         else:
             if valuetype is dict:
@@ -492,7 +490,7 @@ def build_line(name, value, precisioninput=True):
 def max_min_div(channel, data):
     vmax = data[channel]['max']
     vmin = data[channel]['min']
-    content = [html.Div(children = build_line('Max', vmax,)), html.Div(children = build_line('Max', vmin,))]
+    content = [html.Div(children = build_line('Max', vmax,)), html.Div(children = build_line('Min', vmin,))]
     div = html.Div(id = 'max-min-content', children = content)
     return div
 
@@ -694,12 +692,16 @@ page1 = html.Div([
                style={'width': '100%', 'margin-bottom': '15px'},
             ),
             
-            html.Div(id="max-min-display",className="row",),
+            
 
             html.Div([
-                dcc.Graph(id='subplot-graph')
-            ], className="pretty_container",
-               id='subplot-graph-framework',
+                html.Div(id="max-min-display",className="row",style={'width': '100%','margin-bottom': '15px'}),
+                
+                html.Div([
+                    dcc.Graph(id='subplot-graph')
+                ], className="pretty_container",
+                )
+            ],id='subplot-graph-framework',
               style={'width': '100%','margin-bottom': '15px', 'display': 'none'}
             ),
 
@@ -957,7 +959,7 @@ def new_channels(exp, year, start_date, end_date):
         else:
             date_list_td = datelist(start_date_td, end_date_td) # timedate type
         
-        print(path)
+
         if os.path.isfile(path + r'\channels.json'): 
             pass
         else:
@@ -1888,8 +1890,9 @@ def update_sub_graph(before_data, end_date, start_date, today_data, selected_dro
                         maxtime_list.append(pd.Series(temp[channel_time].iloc[-1]))
                         mintime_list.append(pd.Series(temp[channel_time].iloc[0]))
                         trace.append(go.Scatter(x=temp[channel_time], y=temp[channel],mode='lines', opacity=0.7,name=channel, textposition='bottom center'))
+                        
                         max_min_data[channel] = {'min': temp[channel].min()}
-                        max_min_data[channel] = {'max': temp[channel].max()}
+                        max_min_data[channel].update({'max': temp[channel].max()})
                     
                     # the time of last data
                     maxtime = datetime.today()
@@ -2032,9 +2035,11 @@ def update_sub_graph(before_data, end_date, start_date, today_data, selected_dro
 
                     trace.append(go.Scatter(x=temp[channel_time], y=temp[channel],mode='lines', opacity=0.7,name=channel, textposition='bottom center'))
                     
-                    max_min_data[channel].update({'min': temp[channel].min()})
+                    print(temp[channel].min())
+                    print(temp[channel].max())
+                    max_min_data[channel]={'min': temp[channel].min()}
                     max_min_data[channel].update({'max': temp[channel].max()})
-                
+                    print(max_min_data)
                 # overlap display
                 if display_mode_value == 'overlap':
                     figure = {'data': trace, 'layout': layout_set1}
@@ -2057,7 +2062,7 @@ def update_sub_graph(before_data, end_date, start_date, today_data, selected_dro
                 if x_range:
                     condition = (data_df[channel_time] >= x_range[0]) & (data_df[channel_time]<= x_range[0])
                     temp_data = data_df[channel][condition]
-                    max_min_data[channel].update({'min': temp_data.max()})
+                    max_min_data[channel]={'min': temp_data.max()}
                     max_min_data[channel].update({'max': temp_data.max()})
                         
                 # maximum and minimum in y-axis relayout
@@ -2073,7 +2078,7 @@ def update_sub_graph(before_data, end_date, start_date, today_data, selected_dro
                     if y_range[1] <  max_min_data[channel]['max']:
                         max_min_data[channel]['max'] =  y_range[1] 
                 
-                return figure,max_min_div(channel, max_min_data)
+                return figure, max_min_div(channel, max_min_data)
             else:
                 return no_update, no_update
         else:
