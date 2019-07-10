@@ -428,8 +428,13 @@ def modal():
         
 # the row element of data display
 def build_value_setter_line(icolor, channel, num, unit, vmin, vmax, precisioninput=True):
+    if num > 10000 or num <0.001:
+        precisioninput = True
+    else:
+        precisioninput = False
+
     if precisioninput ==True: 
-        element_num = html.H6("{0:.5f}".format(num),id='value_{}'.format(channel),style={'width':'50%','float':'left'})
+        element_num = html.H6("{0:.5E}".format(num),id='value_{}'.format(channel),style={'width':'50%','float':'left'})
     else:
         element_num = html.H6(num,id='value_{}'.format(channel),style={'width':'50%','float':'left'})
     
@@ -472,8 +477,13 @@ def live_data_div(dic, data):
 
 # the row element of data display
 def build_line(name, value, precisioninput=True):
+    if value > 10000 or value <0.001:
+        precisioninput = True
+    else:
+        precisioninput = False
+
     if precisioninput ==True: 
-        element_num = html.H6("{0:.5f}".format(value))
+        element_num = html.H6('{:.5E}'.format(value))
     else:
         element_num = html.H6(value)
     
@@ -1830,12 +1840,12 @@ def update_subplot(n, reset_click, current, channel, value):
             Input('selection-subplot', 'value'),
             Input('display_mode','value'),
             Input('autoscale','n_clicks'),
-            Input('subplot-graph-button', 'n_clicks'),],
+            Input('subplot-graph-button', 'n_clicks'),
+            Input('subplot-graph', 'relayoutData'),],
             [State('subplot-graph-framework', 'style'),
              State('subplot-graph', 'figure'),
-             State('subplot-graph', 'relayoutData'),
              State('dropdown-interval-control', 'value')])
-def update_sub_graph(before_data, end_date, start_date, today_data, selected_dropdown_value, display_mode_value, click, open_close_click, current, figure, relayout, updated_speed):
+def update_sub_graph(before_data, end_date, start_date, today_data, selected_dropdown_value, display_mode_value, click, open_close_click, relayout,  current, figure,updated_speed):
     if current['display'] =='none' and (not updated_speed == 'no'):
         return no_update, no_update
     else:
@@ -2018,7 +2028,7 @@ def update_sub_graph(before_data, end_date, start_date, today_data, selected_dro
                 if date_str in date_log_list:
                     temp_df = pd.DataFrame()
                     temp_df = pd.read_json(before_data[date_str], orient='split', convert_dates =True)
-                    data_df = pd.concat([data_df, temp_df], axis=0) 
+                    data_df = pd.concat([data_df, temp_df], axis=0, sort=False) 
 
             if selected_dropdown_value:
                     
@@ -2035,8 +2045,6 @@ def update_sub_graph(before_data, end_date, start_date, today_data, selected_dro
 
                     trace.append(go.Scatter(x=temp[channel_time], y=temp[channel],mode='lines', opacity=0.7,name=channel, textposition='bottom center'))
                     
-                    print(temp[channel].min())
-                    print(temp[channel].max())
                     max_min_data[channel]={'min': temp[channel].min()}
                     max_min_data[channel].update({'max': temp[channel].max()})
                     print(max_min_data)
@@ -2052,18 +2060,24 @@ def update_sub_graph(before_data, end_date, start_date, today_data, selected_dro
                 
                 x_range = []
                 y_range = []
+            
                 # maximum and minimum in x-axis relayout
                 if 'xaxis.range[1]' in relayout and 'xaxis.range[0]' in relayout:
                     x_range = [relayout['xaxis.range[0]'],relayout['xaxis.range[1]']]
                     
                 elif 'xaxis.range' in relayout:
                     x_range = [relayout['xaxis.range'][0], relayout['xaxis.range'][1]] 
-
+                
                 if x_range:
-                    condition = (data_df[channel_time] >= x_range[0]) & (data_df[channel_time]<= x_range[0])
+                    figure['layout']['xaxis']['range'] = x_range
+                    condition = (data_df[channel_time] >= x_range[0]) & (data_df[channel_time]<= x_range[1])
+
                     temp_data = data_df[channel][condition]
-                    max_min_data[channel]={'min': temp_data.max()}
-                    max_min_data[channel].update({'max': temp_data.max()})
+                    max_min_data[channel]['min']=temp_data.min()
+                    max_min_data[channel]['max']=temp_data.max()
+                elif 'xaxis.autorange' in relayout:
+                    figure['layout']['xaxis']['autorange'] = True
+
                         
                 # maximum and minimum in y-axis relayout
                 if 'yaxis.range[1]' in relayout and 'yaxis.range[0]' in relayout:
@@ -2073,11 +2087,16 @@ def update_sub_graph(before_data, end_date, start_date, today_data, selected_dro
                     y_range = [relayout['yaxis.range'][0], relayout['yaxis.range'][1]] 
 
                 if y_range:  
+                    figure['layout']['yaxis']['range'] = y_range
                     if y_range[0] >  max_min_data[channel]['min']:
                         max_min_data[channel]['min'] =  y_range[0] 
                     if y_range[1] <  max_min_data[channel]['max']:
                         max_min_data[channel]['max'] =  y_range[1] 
+                elif 'yaxis.autorange' in relayout:
+                    figure['layout']['yaxis']['autorange'] = True
                 
+                print('222222222222222222222222')
+                print(max_min_data)
                 return figure, max_min_div(channel, max_min_data)
             else:
                 return no_update, no_update
