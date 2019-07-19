@@ -44,8 +44,7 @@ CORS(server)
 global path_lab
 global path_user
 path_lab = r"C:\Users\YIFAN\Documents\GitHub\LOGS"
-path_lab2 = path_lab
-path_lab3 = path_lab
+
 path_user = r"C:\Users\YIFAN\Documents\GitHub\LOGS"
 
 color_list = ["#5E0DAC", '#FF4F00', '#375CB1', '#FF7400', '#FFF400', '#FF0056']
