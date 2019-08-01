@@ -3,7 +3,7 @@
 import os
 import pandas as pd
 import json
-from flask import Flask
+from flask import Flask, send_from_directory
 from flask_cors import CORS
 from datetime import timedelta, date, time, datetime
 import numpy as np
@@ -19,7 +19,7 @@ import plotly.graph_objs as go
 from plotly import tools
 import dash_table
 import dash_daq as daq
-
+from dash_daq import Indicator
 from data import *
 
 
@@ -40,12 +40,16 @@ CORS(server)
 #
 #
 #
-####################################################################################
-global path_lab
-global path_user
-path_lab = r"C:\Users\YIFAN\Documents\GitHub\LOGS"
+##################################################################################
 
-path_user = r"C:\Users\YIFAN\Documents\GitHub\LOGS"
+if __name__ == '__main__':
+    global path_lab
+    global path_user
+    if len(sys.argv)>=2:
+        path_lab = sys.argv[1]
+        path_user = path_lab
+    else:
+        path_lab = None
 
 color_list = ["#5E0DAC", '#FF4F00', '#375CB1', '#FF7400', '#FFF400', '#FF0056']
 
@@ -427,24 +431,28 @@ def modal():
         
 # the row element of data display
 def build_value_setter_line(icolor, channel, num, unit, vmin, vmax, precisioninput=True):
-    if num > 10000 or num <0.001:
-        precisioninput = True
-    else:
-        precisioninput = False
 
-    if precisioninput ==True: 
-        element_num = html.H6("{0:.5E}".format(num),id='value_{}'.format(channel),style={'width':'50%','float':'left'})
+    if precisioninput == True: 
+        element_num = html.H6("{0:.5E}".format(num),id='value_{}'.format(channel),style={'float':'left'})
     else:
-        element_num = html.H6(num,id='value_{}'.format(channel),style={'width':'50%','float':'left'})
+        element_num = html.H6(num,id='value_{}'.format(channel),style={'float':'left'})
     
     return html.Div(
         id='framework_{}'.format(channel),
         children=[
-            element_num,
-            html.P(unit, id='unit_{}'.format(channel),style={'width':'40%','float':'right'}),
-
-            daq.Indicator(id='indicator_{}'.format(channel), value=True, color=icolor,style={'width':'15%','float':'left' } ),   
-            html.P(channel,style={'font-weight': 'bold','width':'80%','float':'left'}),
+            html.Div([ 
+                element_num,
+                html.P(unit, id='unit_{}'.format(channel),style={'width':'40%','float':'right'}),
+            ],id ='row'
+            ),
+            
+            html.Div([
+                Indicator(id='indicator_{}'.format(channel), value=True, color=icolor,style={'width':'15%','float':'left' } ),   
+                
+                html.P(channel,style={'font-weight': 'bold','width':'75%','float':'right'}), 
+            ],id = 'row'
+            ),
+       
         ],
         className='mini_container',
         style={'width':'19%', 'float':'left'}
@@ -533,11 +541,33 @@ def update_data_configuration(path, dic):
     for key in dic.keys():
         update_jsonfile(path + r'\channels_threshold.json',key, dic[key], valuetype=dict)
 
-def display_subplot():
-    return  html.Div([
-                dcc.Graph(id='subplot-graph')
-            ],
-            )
+def display_subplot(value):
+    element=html.Div([
+            html.Div([
+                html.Div([
+                    dcc.Dropdown(id="selection-subplot{}".format(value), options=[], value='', multi = False,)
+                ],style={'width': '20%','float': 'left', 'margin-right': '15px','display': 'block'}
+            ),
+                        
+                html.Div([
+                    html.Button('Show Subplot',n_clicks = 0, id='subplot-graph-button{}'.format(value),)
+                ],style={'float': 'left'}),
+            ], className="row", style={'width': '100%',  'margin': '15px'}
+            ),
+
+            html.Div([
+                html.Div(id="max-min-display{}".format(value),className="row",style={'width': '100%','margin-bottom': '15px','display': 'none'}),
+                        
+                html.Div([
+                    dcc.Graph(id='subplot-graph{}'.format(value))
+                ], className="pretty_container",
+                )
+            ],id='subplot-graph-framework{}'.format(value), style={'width': '100%','margin-bottom': '15px', 'display': 'none'}
+            ),
+        ])
+    
+    return element
+
 
 
 ####################################################################################
@@ -696,44 +726,16 @@ page1 = html.Div([
             ),
 
             html.Div([
-                dcc.Graph(id='temperature-graph')
+                dcc.Graph(id='temperature-graph',)
             ], className="pretty_container",
-               style={'width': '100%', 'margin-bottom': '15px'},
+              style={ 'margin-bottom': '15px'},
             ),
             
-            
-
-            html.Div([
-                html.Div(id="max-min-display",className="row",style={'width': '100%','margin-bottom': '15px'}),
-                
-                html.Div([
-                    dcc.Graph(id='subplot-graph')
-                ], className="pretty_container",
-                )
-            ],id='subplot-graph-framework',
-              style={'width': '100%','margin-bottom': '15px', 'display': 'none'}
-            ),
-
-            
-            html.Div([
-                    html.Div([
-                        dcc.Dropdown(
-                            id="selection-subplot",
-                            options=[],
-                            value='',
-                            multi = False,
-                        )
-                    ],style={'width': '20%','float': 'left', 'margin-right': '15px','display': 'block'}
-                    ),
-                    
-                    html.Div([
-                        html.Button('Show Subplot',n_clicks = 0, id='subplot-graph-button',)
-                    ],style={'float': 'left'}),
-            ], className="row", style={'width': '100%',  'margin': '15px'}
-            ),
-
+        display_subplot(1),
+        display_subplot(2),
+        display_subplot(3)
         
-        ],id='graph_framework', className ='eight columns',style={'display': 'block'}),
+        ],id='graph_framework', className ='eight columns'),
 
         html.Div([
             html.Div([
@@ -873,14 +875,14 @@ app.layout = html.Div([
 # hide/show modal
 @app.callback(Output("modal-container", "style"), 
             [Input("new_configuration", "n_clicks"),])
-def display_configuration_modal_callback(n):
+def display_configuration_modal(n):
     if n > 0:
         return {"display": "inline"}
     return {"display": "none"}
 
 @app.callback(Output("modal-backdrop", "style"), 
             [Input("new_configuration", "n_clicks"),])
-def display_configuration_modal_callback(n):
+def display_configuration_modal_backdrop(n):
     if n > 0:
         return {"display": "inline"}
     return {"display": "none"}
@@ -898,7 +900,7 @@ def close_modal_callback(n, n2):
     Output("submit_new_configuration", "n_clicks"),
     [Input("configuration_modal_close", "n_clicks"),],
     [State("submit_new_configuration", "n_clicks")])
-def close_modal_callback(n, n2):
+def close_modal_callback2(n, n2):
     return 0
 
 #####################################
@@ -1189,30 +1191,6 @@ def update_channels(exp, year, start_date, end_date,reset_click, value):
     return options, channels_selected, data_channel
 
 
-
-@app.callback(Output('selection-subplot', 'options'),
-              [Input('channels_dropdown', 'options'),])
-def update_selection_subplot(options):
-    if options:
-        return options
-    else: 
-        return no_update
-
-@app.callback(Output('selection-subplot', 'value'),
-              [Input('reset_config', 'n_clicks')],
-              [State('selection_config', 'value')])
-def update_selection_value(reset_click, value):
-    sub_channel = no_update
-    
-    if value and reset_click>0: 
-        with open(path_lab + r'\user.json', 'r') as json_file:
-            data = json.load(json_file)
-            
-        if data[value]['channels']:
-            channels = data[value]['channels']
-            sub_channel = channels[0]
-    
-    return sub_channel
     
 
 
@@ -1692,7 +1670,7 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
                         # the threshold of showing the updated data
                         threshold = (maxtime -timedelta(seconds=100))
                         
-                        if relayout_maxrange:
+                        if relayout_maxrange and now_maxrange:
                             # 'xaxis.range[0]', ['xaxis.range'][0] mean different types of zoom (zoom on the figure, selection on the timeslider)
                             # when the reset of maximal range exceeds a threshold value, the range maximum is assigned as maxtime_updated
                             # when the 'now_maxrange' always exceeds the last data, then update the 'now_maxrange' to keep a constant distance between the last data and the range maximum
@@ -1797,16 +1775,16 @@ def update_graph(before_data, end_date, start_date, today_data, selected_dropdow
 
 
 
-
-# Display the store button
-@app.callback([Output('subplot-graph-framework', 'style'),
-                Output('subplot-graph-button', 'children')],
-                [Input('subplot-graph-button', 'n_clicks'),
-                 Input('reset_config', 'n_clicks')],
-                [State('subplot-graph-framework', 'style'),
-                 State('selection-subplot', 'value'),
-                 State('selection_config', 'value')])
-def update_subplot(n, reset_click, current, channel, value):
+# Display the subplot
+#################################################################
+@app.callback([Output('subplot-graph-framework1', 'style'),
+                Output('subplot-graph-button1', 'children')],
+                [Input('subplot-graph-button1', 'n_clicks'),
+                Input('reset_config', 'n_clicks')],
+                [State('subplot-graph-framework1', 'style'),
+                State('selection-subplot1', 'value'),
+                State('selection_config', 'value')])
+def update_subplot1(n, reset_click, current, channel, value):
     is_mutiple_plots = False
     if value and reset_click>0: 
         with open(path_lab + r'\user.json', 'r') as json_file:
@@ -1830,21 +1808,45 @@ def update_subplot(n, reset_click, current, channel, value):
     else:
         return no_update, no_update
 
-@app.callback([Output('subplot-graph', 'figure'),
-               Output('max-min-display', 'children')],
+@app.callback(Output('selection-subplot1', 'options'),
+              [Input('channels_dropdown', 'options'),])
+def update_selection_subplot1(options):
+    if options:
+        return options
+    else: 
+        return no_update
+
+@app.callback(Output('selection-subplot1', 'value'),
+              [Input('reset_config', 'n_clicks')],
+              [State('selection_config', 'value')])
+def update_selection_value1(reset_click, value):
+    sub_channel = no_update
+    
+    if value and reset_click>0: 
+        with open(path_lab + r'\user.json', 'r') as json_file:
+            data = json.load(json_file)
+            
+        if data[value]['channels']:
+            channels = data[value]['channels']
+            sub_channel = channels[0]
+    
+    return sub_channel
+
+@app.callback([Output('subplot-graph1', 'figure'),
+               Output('max-min-display1', 'children')],
             [Input('before-log-storage', 'children'),
             Input('date_range', 'end_date'),
             Input('date_range', 'start_date'),
             Input('today-log-storage', 'children'),
-            Input('selection-subplot', 'value'),
+            Input('selection-subplot1', 'value'),
             Input('display_mode','value'),
             Input('autoscale','n_clicks'),
-            Input('subplot-graph-button', 'n_clicks'),
-            Input('subplot-graph', 'relayoutData'),],
-            [State('subplot-graph-framework', 'style'),
-             State('subplot-graph', 'figure'),
+            Input('subplot-graph-button1', 'n_clicks'),
+            Input('subplot-graph1', 'relayoutData'),],
+            [State('subplot-graph-framework1', 'style'),
+             State('subplot-graph1', 'figure'),
              State('dropdown-interval-control', 'value')])
-def update_sub_graph(before_data, end_date, start_date, today_data, selected_dropdown_value, display_mode_value, click, open_close_click, relayout,  current, figure,updated_speed):
+def update_sub_graph1(before_data, end_date, start_date, today_data, selected_dropdown_value, display_mode_value, click, open_close_click, relayout,  current, figure,updated_speed):
     if current['display'] =='none' and (not updated_speed == 'no'):
         return no_update, no_update
     else:
@@ -2046,7 +2048,7 @@ def update_sub_graph(before_data, end_date, start_date, today_data, selected_dro
                     
                     max_min_data[channel]={'min': temp[channel].min()}
                     max_min_data[channel].update({'max': temp[channel].max()})
-                    print(max_min_data)
+
                 # overlap display
                 if display_mode_value == 'overlap':
                     figure = {'data': trace, 'layout': layout_set1}
@@ -2094,8 +2096,658 @@ def update_sub_graph(before_data, end_date, start_date, today_data, selected_dro
                 elif 'yaxis.autorange' in relayout:
                     figure['layout']['yaxis']['autorange'] = True
                 
-                print('222222222222222222222222')
-                print(max_min_data)
+                return figure, max_min_div(channel, max_min_data)
+            else:
+                return no_update, no_update
+        else:
+            return no_update, no_update
+
+#################################################################
+@app.callback([Output('subplot-graph-framework2', 'style'),
+                Output('subplot-graph-button2', 'children')],
+                [Input('subplot-graph-button2', 'n_clicks'),
+                Input('reset_config', 'n_clicks')],
+                [State('subplot-graph-framework2', 'style'),
+                State('selection-subplot2', 'value'),
+                State('selection_config', 'value')])
+def update_subplot2(n, reset_click, current, channel, value):
+    is_mutiple_plots = False
+    if value and reset_click>0: 
+        with open(path_lab + r'\user.json', 'r') as json_file:
+            data = json.load(json_file)
+        
+        if data[value]['figure'] and data[value]['figure'] == "Multiple plots":
+            is_mutiple_plots = True
+    
+    if n==1 and channel:
+        return {'display': 'block'}, 'Close Subplot' 
+    elif n>1 and channel:
+        if current['display'] =='none':
+            return {'display': 'block'}, 'Close Subplot'
+        elif current['display'] =='block':
+            return {'display': 'none'}, 'Show Subplot'
+        else:
+            return no_update, no_update
+    
+    elif is_mutiple_plots and channel:
+        return {'display': 'block'}, 'Close Subplot'
+    else:
+        return no_update, no_update
+
+@app.callback(Output('selection-subplot2', 'options'),
+              [Input('channels_dropdown', 'options'),])
+def update_selection_subplot2(options):
+    if options:
+        return options
+    else: 
+        return no_update
+
+@app.callback(Output('selection-subplot2', 'value'),
+              [Input('reset_config', 'n_clicks')],
+              [State('selection_config', 'value')])
+def update_selection_value2(reset_click, value):
+    sub_channel = no_update
+    
+    if value and reset_click>0: 
+        with open(path_lab + r'\user.json', 'r') as json_file:
+            data = json.load(json_file)
+            
+        if data[value]['channels']:
+            channels = data[value]['channels']
+            sub_channel = channels[0]
+    
+    return sub_channel
+
+@app.callback([Output('subplot-graph2', 'figure'),
+               Output('max-min-display2', 'children')],
+            [Input('before-log-storage', 'children'),
+            Input('date_range', 'end_date'),
+            Input('date_range', 'start_date'),
+            Input('today-log-storage', 'children'),
+            Input('selection-subplot2', 'value'),
+            Input('display_mode','value'),
+            Input('autoscale','n_clicks'),
+            Input('subplot-graph-button2', 'n_clicks'),
+            Input('subplot-graph2', 'relayoutData'),],
+            [State('subplot-graph-framework2', 'style'),
+             State('subplot-graph2', 'figure'),
+             State('dropdown-interval-control', 'value')])
+def update_sub_graph2(before_data, end_date, start_date, today_data, selected_dropdown_value, display_mode_value, click, open_close_click, relayout,  current, figure,updated_speed):
+    if current['display'] =='none' and (not updated_speed == 'no'):
+        return no_update, no_update
+    else:
+        start_date = datetime.strptime(start_date, r'%Y-%m-%d').date()
+        end_date = datetime.strptime(end_date, r'%Y-%m-%d').date()
+        date_list =  [start_date + timedelta(days=x) for x in range((end_date-start_date).days + 1)]
+        
+        if end_date == datetime.today().date():   
+            if today_data:
+                trace = []
+                max_min_data = {}
+
+                # read data from json cache
+                if before_data is not None:
+                    before_data.update(today_data)
+                else:
+                    before_data = today_data
+                
+                # The keys of 'before_data' contains the keywords 'exp_before' or 'exp_today' and corresponding years
+                date_log_list = list(before_data.keys())
+                if 'exp_before' in date_log_list:
+                    date_log_list.remove('exp_before')
+                if 'exp_today' in date_log_list:
+                    date_log_list.remove('exp_today')
+                
+                data_df = pd.DataFrame()
+                for date in date_list:
+                    date_str = date.strftime(r'%Y-%m-%d')
+                    
+                    if date_str in date_log_list:
+                        temp_df = pd.DataFrame()
+                        temp_df = pd.read_json(before_data[date_str], orient='split', convert_dates =True)
+                        data_df = pd.concat([data_df, temp_df], axis=0) 
+
+                # selected_dropdown_value is not None or not empty
+                if selected_dropdown_value:
+                    
+                    maxtime_list = pd.Series()
+                    mintime_list = pd.Series()
+                    
+                    # append each traces
+                    channel = selected_dropdown_value
+                    channel_time = channel+'_time'
+
+                    # drop all NaN
+                    if channel in data_df:
+                        temp = pd.DataFrame()
+                        temp[channel] = data_df[channel]
+                        temp[channel_time] = data_df[channel_time]
+                        temp.dropna(inplace=True)
+
+                        maxtime_list.append(pd.Series(temp[channel_time].iloc[-1]))
+                        mintime_list.append(pd.Series(temp[channel_time].iloc[0]))
+                        trace.append(go.Scatter(x=temp[channel_time], y=temp[channel],mode='lines', opacity=0.7,name=channel, textposition='bottom center'))
+                        
+                        max_min_data[channel] = {'min': temp[channel].min()}
+                        max_min_data[channel].update({'max': temp[channel].max()})
+                    
+                    # the time of last data
+                    maxtime = datetime.today()
+                    if not maxtime_list.empty:
+                        maxtime = maxtime_list.max()
+                    if not mintime_list.empty:
+                        mintime = mintime_list.max()
+
+                    # overlap display
+                    if display_mode_value == 'overlap':
+                        figure = {'data': trace, 'layout': layout_set1}
+                    
+                    # time slider 
+                    elif display_mode_value == 'timeslider':
+                        figure = {'data': trace, 'layout': layout_set2}
+                    
+                    # keep the zoom 
+                    if figure:
+                        # have attribute 'relayout, the attribute 'range' exists only execute the zoom 
+                        if relayout:
+                            relayout_maxrange = None
+                            # get the relayout x-axis maximum
+                            if 'xaxis.range[1]' in relayout or 'xaxis.range' in relayout:
+                                try:
+                                    relayout_maxrange = str_to_datetime(relayout['xaxis.range[1]'])
+                                except:
+                                    relayout_maxrange = str_to_datetime(relayout['xaxis.range'][1])
+                            
+                            # now_maxrange is the last time or the actual range maximum 
+                            if 'xaxis' in figure['layout']:
+                                if 'range' in figure['layout']['xaxis']:
+                                    if figure['layout']['xaxis']['range']:
+                                        now_maxrange =  str_to_datetime(figure['layout']['xaxis']['range'][1])
+                                    else:
+                                        now_maxrange = maxtime
+                                else:
+                                    now_maxrange = maxtime
+
+                            elif 'xaxis1' in figure['layout']:
+                                temp_now_list = []
+                                
+                                for index, tra in enumerate(trace):     
+                                    if 'range' in figure['layout']['xaxis{}'.format(index+1)]:
+                                        temp_now =  str_to_datetime(figure['layout']['xaxis{}'.format(index+1)]['range'][1])
+                                        temp_now_list.append(temp_now)
+                                        
+                                now_maxrange = max(temp_now_list)
+                            elif maxtime:
+                                now_maxrange = maxtime
+                            
+                            # the threshold of showing the updated data
+                            threshold = (maxtime - timedelta(seconds=100))
+                            
+                            if relayout_maxrange and now_maxrange:
+                                # 'xaxis.range[0]', ['xaxis.range'][0] mean different types of zoom (zoom on the figure, selection on the timeslider)
+                                # when the reset of maximal range exceeds a threshold value, the range maximum is assigned as maxtime_updated
+                                # when the 'now_maxrange' always exceeds the last data, then update the 'now_maxrange' to keep a constant distance between the last data and the range maximum
+                                the_range = []
+                                if relayout_maxrange > threshold or now_maxrange > maxtime:
+                                    
+                                    maxtime_updated = (maxtime +  timedelta(seconds=300))
+                                    if 'xaxis.range[1]' in relayout:
+                                        the_range = [relayout['xaxis.range[0]'], maxtime_updated]
+                                    elif 'xaxis.range' in relayout:
+                                        the_range = [relayout['xaxis.range'][0], maxtime_updated]
+                                
+                                elif 'xaxis.range[1]' in relayout:
+                                    the_range = [relayout['xaxis.range[0]'], relayout['xaxis.range[1]']]
+                                    
+                                elif 'xaxis.range' in relayout:
+                                    the_range = [relayout['xaxis.range'][0], relayout['xaxis.range'][1]]
+
+                                if the_range: 
+                                    figure['layout']['xaxis']['range'] = the_range
+                                    
+                                    condition = (data_df[channel_time] >= the_range[0]) & (data_df[channel_time]<= the_range[0])
+                                    temp_data = data_df[channel][condition]
+                                    max_min_data[channel] = {'min': temp_data.max()}
+                                    max_min_data[channel] = {'max': temp_data.max()}
+                        
+                            # reset y-axis range
+                            if 'yaxis.range[1]' in relayout and 'yaxis.range[0]' in relayout:
+                                y_range = [relayout['yaxis.range[0]'],relayout['yaxis.range[1]']]
+                                
+                                figure['layout']['yaxis']['range'] = y_range
+                                if y_range[0] >  max_min_data[channel]['min']:
+                                    max_min_data[channel]['min'] =  y_range[0] 
+                                if y_range[1] <  max_min_data[channel]['max']:
+                                    max_min_data[channel]['max'] =  y_range[1] 
+                            
+                            elif 'yaxis.range' in relayout:
+                                y_range = [relayout['yaxis.range'][0], relayout['yaxis.range'][1]] 
+
+                                figure['layout']['yaxis']['range'] = y_range
+                                if y_range[0] >  max_min_data[channel]['min']:
+                                    max_min_data[channel]['min'] =  y_range[0] 
+                                if y_range[1] <  max_min_data[channel]['max']:
+                                    max_min_data[channel]['max'] =  y_range[1] 
+                        # autorange when no update
+                        if click>0:
+                            figure['layout']['xaxis']['autorange'] = True
+                    
+
+                    return figure,max_min_div(channel, max_min_data)
+                else: 
+                    return no_update, no_update
+            else:
+                return no_update, no_update
+        elif before_data: 
+            trace = []
+            max_min_data = {}
+            
+            date_log_list = list(before_data.keys())
+            if 'exp_before' in date_log_list:
+                date_log_list.remove('exp_before')
+            if 'exp_today' in date_log_list:
+                date_log_list.remove('exp_today')
+                    
+            data_df = pd.DataFrame()
+            for date in date_list:
+                date_str = date.strftime(r'%Y-%m-%d')
+                
+                if date_str in date_log_list:
+                    temp_df = pd.DataFrame()
+                    temp_df = pd.read_json(before_data[date_str], orient='split', convert_dates =True)
+                    data_df = pd.concat([data_df, temp_df], axis=0, sort=False) 
+
+            if selected_dropdown_value:
+                    
+                # append each traces
+                channel = selected_dropdown_value
+                channel_time = channel+'_time'
+
+                # drop all NaN
+                if channel in data_df:
+                    temp = pd.DataFrame()
+                    temp[channel] = data_df[channel]
+                    temp[channel_time] = data_df[channel_time]
+                    temp.dropna(inplace=True)
+
+                    trace.append(go.Scatter(x=temp[channel_time], y=temp[channel],mode='lines', opacity=0.7,name=channel, textposition='bottom center'))
+                    
+                    max_min_data[channel]={'min': temp[channel].min()}
+                    max_min_data[channel].update({'max': temp[channel].max()})
+
+                # overlap display
+                if display_mode_value == 'overlap':
+                    figure = {'data': trace, 'layout': layout_set1}
+                    figure['layout'].update(uirevision= click)
+
+                # time slider 
+                elif display_mode_value == 'timeslider':
+                    figure = {'data': trace, 'layout': layout_set2}
+                    figure['layout'].update(uirevision=click)
+                
+                x_range = []
+                y_range = []
+            
+                # maximum and minimum in x-axis relayout
+                if 'xaxis.range[1]' in relayout and 'xaxis.range[0]' in relayout:
+                    x_range = [relayout['xaxis.range[0]'],relayout['xaxis.range[1]']]
+                    
+                elif 'xaxis.range' in relayout:
+                    x_range = [relayout['xaxis.range'][0], relayout['xaxis.range'][1]] 
+                
+                if x_range:
+                    figure['layout']['xaxis']['range'] = x_range
+                    condition = (data_df[channel_time] >= x_range[0]) & (data_df[channel_time]<= x_range[1])
+
+                    temp_data = data_df[channel][condition]
+                    max_min_data[channel]['min']=temp_data.min()
+                    max_min_data[channel]['max']=temp_data.max()
+                elif 'xaxis.autorange' in relayout:
+                    figure['layout']['xaxis']['autorange'] = True
+
+                        
+                # maximum and minimum in y-axis relayout
+                if 'yaxis.range[1]' in relayout and 'yaxis.range[0]' in relayout:
+                    y_range = [relayout['yaxis.range[0]'],relayout['yaxis.range[1]']]
+
+                elif 'yaxis.range' in relayout:
+                    y_range = [relayout['yaxis.range'][0], relayout['yaxis.range'][1]] 
+
+                if y_range:  
+                    figure['layout']['yaxis']['range'] = y_range
+                    if y_range[0] >  max_min_data[channel]['min']:
+                        max_min_data[channel]['min'] =  y_range[0] 
+                    if y_range[1] <  max_min_data[channel]['max']:
+                        max_min_data[channel]['max'] =  y_range[1] 
+                elif 'yaxis.autorange' in relayout:
+                    figure['layout']['yaxis']['autorange'] = True
+                
+                return figure, max_min_div(channel, max_min_data)
+            else:
+                return no_update, no_update
+        else:
+            return no_update, no_update
+
+#################################################################
+@app.callback([Output('subplot-graph-framework3', 'style'),
+                Output('subplot-graph-button3', 'children')],
+                [Input('subplot-graph-button3', 'n_clicks'),
+                Input('reset_config', 'n_clicks')],
+                [State('subplot-graph-framework3', 'style'),
+                State('selection-subplot3', 'value'),
+                State('selection_config', 'value')])
+def update_subplot3(n, reset_click, current, channel, value):
+    is_mutiple_plots = False
+    if value and reset_click>0: 
+        with open(path_lab + r'\user.json', 'r') as json_file:
+            data = json.load(json_file)
+        
+        if data[value]['figure'] and data[value]['figure'] == "Multiple plots":
+            is_mutiple_plots = True
+    
+    if n==1 and channel:
+        return {'display': 'block'}, 'Close Subplot' 
+    elif n>1 and channel:
+        if current['display'] =='none':
+            return {'display': 'block'}, 'Close Subplot'
+        elif current['display'] =='block':
+            return {'display': 'none'}, 'Show Subplot'
+        else:
+            return no_update, no_update
+    
+    elif is_mutiple_plots and channel:
+        return {'display': 'block'}, 'Close Subplot'
+    else:
+        return no_update, no_update
+
+@app.callback(Output('selection-subplot3', 'options'),
+              [Input('channels_dropdown', 'options'),])
+def update_selection_subplot3(options):
+    if options:
+        return options
+    else: 
+        return no_update
+
+@app.callback(Output('selection-subplot3', 'value'),
+              [Input('reset_config', 'n_clicks')],
+              [State('selection_config', 'value')])
+def update_selection_value3(reset_click, value):
+    sub_channel = no_update
+    
+    if value and reset_click>0: 
+        with open(path_lab + r'\user.json', 'r') as json_file:
+            data = json.load(json_file)
+            
+        if data[value]['channels']:
+            channels = data[value]['channels']
+            sub_channel = channels[0]
+    
+    return sub_channel
+
+@app.callback([Output('subplot-graph3', 'figure'),
+               Output('max-min-display3', 'children')],
+            [Input('before-log-storage', 'children'),
+            Input('date_range', 'end_date'),
+            Input('date_range', 'start_date'),
+            Input('today-log-storage', 'children'),
+            Input('selection-subplot3', 'value'),
+            Input('display_mode','value'),
+            Input('autoscale','n_clicks'),
+            Input('subplot-graph-button3', 'n_clicks'),
+            Input('subplot-graph3', 'relayoutData'),],
+            [State('subplot-graph-framework3', 'style'),
+             State('subplot-graph3', 'figure'),
+             State('dropdown-interval-control', 'value')])
+def update_sub_graph3(before_data, end_date, start_date, today_data, selected_dropdown_value, display_mode_value, click, open_close_click, relayout,  current, figure,updated_speed):
+    if current['display'] =='none' and (not updated_speed == 'no'):
+        return no_update, no_update
+    else:
+        start_date = datetime.strptime(start_date, r'%Y-%m-%d').date()
+        end_date = datetime.strptime(end_date, r'%Y-%m-%d').date()
+        date_list =  [start_date + timedelta(days=x) for x in range((end_date-start_date).days + 1)]
+        
+        if end_date == datetime.today().date():   
+            if today_data:
+                trace = []
+                max_min_data = {}
+
+                # read data from json cache
+                if before_data is not None:
+                    before_data.update(today_data)
+                else:
+                    before_data = today_data
+                
+                # The keys of 'before_data' contains the keywords 'exp_before' or 'exp_today' and corresponding years
+                date_log_list = list(before_data.keys())
+                if 'exp_before' in date_log_list:
+                    date_log_list.remove('exp_before')
+                if 'exp_today' in date_log_list:
+                    date_log_list.remove('exp_today')
+                
+                data_df = pd.DataFrame()
+                for date in date_list:
+                    date_str = date.strftime(r'%Y-%m-%d')
+                    
+                    if date_str in date_log_list:
+                        temp_df = pd.DataFrame()
+                        temp_df = pd.read_json(before_data[date_str], orient='split', convert_dates =True)
+                        data_df = pd.concat([data_df, temp_df], axis=0) 
+
+                # selected_dropdown_value is not None or not empty
+                if selected_dropdown_value:
+                    
+                    maxtime_list = pd.Series()
+                    mintime_list = pd.Series()
+                    
+                    # append each traces
+                    channel = selected_dropdown_value
+                    channel_time = channel+'_time'
+
+                    # drop all NaN
+                    if channel in data_df:
+                        temp = pd.DataFrame()
+                        temp[channel] = data_df[channel]
+                        temp[channel_time] = data_df[channel_time]
+                        temp.dropna(inplace=True)
+
+                        maxtime_list.append(pd.Series(temp[channel_time].iloc[-1]))
+                        mintime_list.append(pd.Series(temp[channel_time].iloc[0]))
+                        trace.append(go.Scatter(x=temp[channel_time], y=temp[channel],mode='lines', opacity=0.7,name=channel, textposition='bottom center'))
+                        
+                        max_min_data[channel] = {'min': temp[channel].min()}
+                        max_min_data[channel].update({'max': temp[channel].max()})
+                    
+                    # the time of last data
+                    maxtime = datetime.today()
+                    if not maxtime_list.empty:
+                        maxtime = maxtime_list.max()
+                    if not mintime_list.empty:
+                        mintime = mintime_list.max()
+
+                    # overlap display
+                    if display_mode_value == 'overlap':
+                        figure = {'data': trace, 'layout': layout_set1}
+                    
+                    # time slider 
+                    elif display_mode_value == 'timeslider':
+                        figure = {'data': trace, 'layout': layout_set2}
+                    
+                    # keep the zoom 
+                    if figure:
+                        # have attribute 'relayout, the attribute 'range' exists only execute the zoom 
+                        if relayout:
+                            relayout_maxrange = None
+                            # get the relayout x-axis maximum
+                            if 'xaxis.range[1]' in relayout or 'xaxis.range' in relayout:
+                                try:
+                                    relayout_maxrange = str_to_datetime(relayout['xaxis.range[1]'])
+                                except:
+                                    relayout_maxrange = str_to_datetime(relayout['xaxis.range'][1])
+                            
+                            # now_maxrange is the last time or the actual range maximum 
+                            if 'xaxis' in figure['layout']:
+                                if 'range' in figure['layout']['xaxis']:
+                                    if figure['layout']['xaxis']['range']:
+                                        now_maxrange =  str_to_datetime(figure['layout']['xaxis']['range'][1])
+                                    else:
+                                        now_maxrange = maxtime
+                                else:
+                                    now_maxrange = maxtime
+
+                            elif 'xaxis1' in figure['layout']:
+                                temp_now_list = []
+                                
+                                for index, tra in enumerate(trace):     
+                                    if 'range' in figure['layout']['xaxis{}'.format(index+1)]:
+                                        temp_now =  str_to_datetime(figure['layout']['xaxis{}'.format(index+1)]['range'][1])
+                                        temp_now_list.append(temp_now)
+                                        
+                                now_maxrange = max(temp_now_list)
+                            elif maxtime:
+                                now_maxrange = maxtime
+                            
+                            # the threshold of showing the updated data
+                            threshold = (maxtime - timedelta(seconds=100))
+                            
+                            if relayout_maxrange and now_maxrange:
+                                # 'xaxis.range[0]', ['xaxis.range'][0] mean different types of zoom (zoom on the figure, selection on the timeslider)
+                                # when the reset of maximal range exceeds a threshold value, the range maximum is assigned as maxtime_updated
+                                # when the 'now_maxrange' always exceeds the last data, then update the 'now_maxrange' to keep a constant distance between the last data and the range maximum
+                                the_range = []
+                                if relayout_maxrange > threshold or now_maxrange > maxtime:
+                                    
+                                    maxtime_updated = (maxtime +  timedelta(seconds=300))
+                                    if 'xaxis.range[1]' in relayout:
+                                        the_range = [relayout['xaxis.range[0]'], maxtime_updated]
+                                    elif 'xaxis.range' in relayout:
+                                        the_range = [relayout['xaxis.range'][0], maxtime_updated]
+                                
+                                elif 'xaxis.range[1]' in relayout:
+                                    the_range = [relayout['xaxis.range[0]'], relayout['xaxis.range[1]']]
+                                    
+                                elif 'xaxis.range' in relayout:
+                                    the_range = [relayout['xaxis.range'][0], relayout['xaxis.range'][1]]
+
+                                if the_range: 
+                                    figure['layout']['xaxis']['range'] = the_range
+                                    
+                                    condition = (data_df[channel_time] >= the_range[0]) & (data_df[channel_time]<= the_range[0])
+                                    temp_data = data_df[channel][condition]
+                                    max_min_data[channel] = {'min': temp_data.max()}
+                                    max_min_data[channel] = {'max': temp_data.max()}
+                        
+                            # reset y-axis range
+                            if 'yaxis.range[1]' in relayout and 'yaxis.range[0]' in relayout:
+                                y_range = [relayout['yaxis.range[0]'],relayout['yaxis.range[1]']]
+                                
+                                figure['layout']['yaxis']['range'] = y_range
+                                if y_range[0] >  max_min_data[channel]['min']:
+                                    max_min_data[channel]['min'] =  y_range[0] 
+                                if y_range[1] <  max_min_data[channel]['max']:
+                                    max_min_data[channel]['max'] =  y_range[1] 
+                            
+                            elif 'yaxis.range' in relayout:
+                                y_range = [relayout['yaxis.range'][0], relayout['yaxis.range'][1]] 
+
+                                figure['layout']['yaxis']['range'] = y_range
+                                if y_range[0] >  max_min_data[channel]['min']:
+                                    max_min_data[channel]['min'] =  y_range[0] 
+                                if y_range[1] <  max_min_data[channel]['max']:
+                                    max_min_data[channel]['max'] =  y_range[1] 
+                        # autorange when no update
+                        if click>0:
+                            figure['layout']['xaxis']['autorange'] = True
+                    
+
+                    return figure,max_min_div(channel, max_min_data)
+                else: 
+                    return no_update, no_update
+            else:
+                return no_update, no_update
+        elif before_data: 
+            trace = []
+            max_min_data = {}
+            
+            date_log_list = list(before_data.keys())
+            if 'exp_before' in date_log_list:
+                date_log_list.remove('exp_before')
+            if 'exp_today' in date_log_list:
+                date_log_list.remove('exp_today')
+                    
+            data_df = pd.DataFrame()
+            for date in date_list:
+                date_str = date.strftime(r'%Y-%m-%d')
+                
+                if date_str in date_log_list:
+                    temp_df = pd.DataFrame()
+                    temp_df = pd.read_json(before_data[date_str], orient='split', convert_dates =True)
+                    data_df = pd.concat([data_df, temp_df], axis=0, sort=False) 
+
+            if selected_dropdown_value:
+                    
+                # append each traces
+                channel = selected_dropdown_value
+                channel_time = channel+'_time'
+
+                # drop all NaN
+                if channel in data_df:
+                    temp = pd.DataFrame()
+                    temp[channel] = data_df[channel]
+                    temp[channel_time] = data_df[channel_time]
+                    temp.dropna(inplace=True)
+
+                    trace.append(go.Scatter(x=temp[channel_time], y=temp[channel],mode='lines', opacity=0.7,name=channel, textposition='bottom center'))
+                    
+                    max_min_data[channel]={'min': temp[channel].min()}
+                    max_min_data[channel].update({'max': temp[channel].max()})
+
+                # overlap display
+                if display_mode_value == 'overlap':
+                    figure = {'data': trace, 'layout': layout_set1}
+                    figure['layout'].update(uirevision= click)
+
+                # time slider 
+                elif display_mode_value == 'timeslider':
+                    figure = {'data': trace, 'layout': layout_set2}
+                    figure['layout'].update(uirevision=click)
+                
+                x_range = []
+                y_range = []
+            
+                # maximum and minimum in x-axis relayout
+                if 'xaxis.range[1]' in relayout and 'xaxis.range[0]' in relayout:
+                    x_range = [relayout['xaxis.range[0]'],relayout['xaxis.range[1]']]
+                    
+                elif 'xaxis.range' in relayout:
+                    x_range = [relayout['xaxis.range'][0], relayout['xaxis.range'][1]] 
+                
+                if x_range:
+                    figure['layout']['xaxis']['range'] = x_range
+                    condition = (data_df[channel_time] >= x_range[0]) & (data_df[channel_time]<= x_range[1])
+
+                    temp_data = data_df[channel][condition]
+                    max_min_data[channel]['min']=temp_data.min()
+                    max_min_data[channel]['max']=temp_data.max()
+                elif 'xaxis.autorange' in relayout:
+                    figure['layout']['xaxis']['autorange'] = True
+
+                        
+                # maximum and minimum in y-axis relayout
+                if 'yaxis.range[1]' in relayout and 'yaxis.range[0]' in relayout:
+                    y_range = [relayout['yaxis.range[0]'],relayout['yaxis.range[1]']]
+
+                elif 'yaxis.range' in relayout:
+                    y_range = [relayout['yaxis.range'][0], relayout['yaxis.range'][1]] 
+
+                if y_range:  
+                    figure['layout']['yaxis']['range'] = y_range
+                    if y_range[0] >  max_min_data[channel]['min']:
+                        max_min_data[channel]['min'] =  y_range[0] 
+                    if y_range[1] <  max_min_data[channel]['max']:
+                        max_min_data[channel]['max'] =  y_range[1] 
+                elif 'yaxis.autorange' in relayout:
+                    figure['layout']['yaxis']['autorange'] = True
+                
                 return figure, max_min_div(channel, max_min_data)
             else:
                 return no_update, no_update
@@ -2103,15 +2755,9 @@ def update_sub_graph(before_data, end_date, start_date, today_data, selected_dro
             return no_update, no_update
 
 
-
 # Main
-if __name__ == '__main__':
-    if len(sys.argv)>=2:
-        path_lab = sys.argv[1]
-    else:
-        path_lab = None
-    print(path_lab)
-    app.server.run(debug=False, threaded=True)
+
+app.server.run(debug=False, threaded=True)
 
 
 # # separate dislay
